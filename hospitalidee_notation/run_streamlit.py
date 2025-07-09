@@ -7,9 +7,19 @@ Configure automatiquement le PYTHONPATH et lance l'application
 import os
 import sys
 import subprocess
+import argparse
 
 def main():
     """Lance l'application Streamlit avec la configuration correcte"""
+    
+    # Parser les arguments
+    parser = argparse.ArgumentParser(description='Lance l\'application Streamlit Hospitalidée')
+    parser.add_argument('--server.port', '--port', default='8501', help='Port du serveur (défaut: 8501)')
+    parser.add_argument('--server.address', '--address', default='localhost', help='Adresse du serveur (défaut: localhost)')
+    parser.add_argument('--server.headless', default='false', help='Mode headless (défaut: false)')
+    
+    # Récupérer tous les arguments pour Streamlit
+    args, unknown = parser.parse_known_args()
     
     # Obtenir le répertoire du script (hospitalidee_notation)
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -39,15 +49,19 @@ def main():
         '-m', 'streamlit', 
         'run', 
         app_path,
-        '--server.port', '8501',
-        '--server.headless', 'false',
+        '--server.port', getattr(args, 'server.port'),
+        '--server.address', getattr(args, 'server.address'),
+        '--server.headless', args.server.headless,
         '--server.fileWatcherType', 'auto'
     ]
+    
+    # Ajouter les arguments inconnus (pour compatibilité)
+    cmd.extend(unknown)
     
     print("🏥 Lancement de l'interface Hospitalidée...")
     print(f"📁 Répertoire: {script_dir}")
     print(f"🚀 Application: {app_path}")
-    print("🌐 URL: http://localhost:8501")
+    print(f"🌐 URL: http://{getattr(args, 'server.address')}:{getattr(args, 'server.port')}")
     print("-" * 50)
     
     try:
