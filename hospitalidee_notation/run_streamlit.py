@@ -14,9 +14,9 @@ def main():
     
     # Parser les arguments
     parser = argparse.ArgumentParser(description='Lance l\'application Streamlit Hospitalidée')
-    parser.add_argument('--server.port', '--port', default='8501', help='Port du serveur (défaut: 8501)')
-    parser.add_argument('--server.address', '--address', default='localhost', help='Adresse du serveur (défaut: localhost)')
-    parser.add_argument('--server.headless', default='false', help='Mode headless (défaut: false)')
+    parser.add_argument('--port', default='8501', help='Port du serveur (défaut: 8501)')
+    parser.add_argument('--address', default='localhost', help='Adresse du serveur (défaut: localhost)')
+    parser.add_argument('--headless', default='false', help='Mode headless (défaut: false)')
     
     # Récupérer tous les arguments pour Streamlit
     args, unknown = parser.parse_known_args()
@@ -49,9 +49,9 @@ def main():
         '-m', 'streamlit', 
         'run', 
         app_path,
-        '--server.port', getattr(args, 'server.port'),
-        '--server.address', getattr(args, 'server.address'),
-        '--server.headless', args.server.headless,
+        '--server.port', args.port,
+        '--server.address', args.address,
+        '--server.headless', args.headless,
         '--server.fileWatcherType', 'auto'
     ]
     
@@ -61,7 +61,7 @@ def main():
     print("🏥 Lancement de l'interface Hospitalidée...")
     print(f"📁 Répertoire: {script_dir}")
     print(f"🚀 Application: {app_path}")
-    print(f"🌐 URL: http://{getattr(args, 'server.address')}:{getattr(args, 'server.port')}")
+    print(f"🌐 URL: http://{args.address}:{args.port}")
     print("-" * 50)
     
     try:

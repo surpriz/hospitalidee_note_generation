@@ -91,9 +91,7 @@ def init_session_state():
     if 'analysis_complete' not in st.session_state:
         st.session_state.analysis_complete = False
     
-    # Nouvelles variables pour les questions fermées
-    if 'quick_adjusted_rating' not in st.session_state:
-        st.session_state.quick_adjusted_rating = None
+    # Variables pour les questions fermées
     
     if 'note_etablissement' not in st.session_state:
         st.session_state.note_etablissement = None
@@ -209,10 +207,7 @@ def step_1_saisie_avis():
                     st.metric("Confiance", f"{confidence:.1%}")
                     st.metric("Intensité émotionnelle", f"{intensity:.1%}")
                     
-                    # Graphique de répartition
-                    if confidence > 0.3:  # Seuil de fiabilité
-                        fig = create_sentiment_gauge(sentiment, confidence)
-                        st.plotly_chart(fig, use_container_width=True)
+                    # Graphique de répartition supprimé selon demande utilisateur
                     
                     # Indicateurs détaillés
                     word_count = len(avis_text.split())
@@ -247,28 +242,28 @@ def step_2_analyse_complete():
     
     sentiment_data = st.session_state.sentiment_analysis
     
-    # Affichage des résultats détaillés selon Cursor rules
+    # Affichage des résultats détaillés selon Cursor rules - colonnes supprimées selon demande utilisateur
+    st.markdown("### 📊 Résultats de l'analyse")
+    
+    # Métriques principales
+    metrics_col1, metrics_col2, metrics_col3 = st.columns(3)
+    
+    with metrics_col1:
+        sentiment = sentiment_data.get('sentiment', 'neutre')
+        st.metric("Sentiment global", sentiment.title())
+    
+    with metrics_col2:
+        confidence = sentiment_data.get('confidence', 0.0)
+        st.metric("Niveau de confiance", f"{confidence:.1%}")
+    
+    with metrics_col3:
+        intensity = sentiment_data.get('emotional_intensity', 0.5)
+        st.metric("Intensité émotionnelle", f"{intensity:.1%}")
+    
+    # Indicateurs positifs et négatifs
     col1, col2 = st.columns(2)
     
     with col1:
-        st.markdown("### 📊 Résultats de l'analyse")
-        
-        # Métriques principales
-        metrics_col1, metrics_col2, metrics_col3 = st.columns(3)
-        
-        with metrics_col1:
-            sentiment = sentiment_data.get('sentiment', 'neutre')
-            st.metric("Sentiment global", sentiment.title())
-        
-        with metrics_col2:
-            confidence = sentiment_data.get('confidence', 0.0)
-            st.metric("Niveau de confiance", f"{confidence:.1%}")
-        
-        with metrics_col3:
-            intensity = sentiment_data.get('emotional_intensity', 0.5)
-            st.metric("Intensité émotionnelle", f"{intensity:.1%}")
-        
-        # Indicateurs positifs et négatifs
         st.markdown("#### 🟢 Aspects positifs détectés")
         positive_indicators = sentiment_data.get('positive_indicators', [])
         if positive_indicators:
@@ -276,7 +271,8 @@ def step_2_analyse_complete():
                 st.markdown(f"• {indicator}")
         else:
             st.info("Aucun aspect positif spécifique détecté")
-        
+    
+    with col2:
         st.markdown("#### 🔴 Aspects négatifs détectés")
         negative_indicators = sentiment_data.get('negative_indicators', [])
         if negative_indicators:
@@ -284,20 +280,6 @@ def step_2_analyse_complete():
                 st.markdown(f"• {indicator}")
         else:
             st.info("Aucun aspect négatif spécifique détecté")
-    
-    with col2:
-        st.markdown("### 📈 Visualisations")
-        
-        # Graphique de sentiment selon Cursor rules
-        fig_sentiment = create_detailed_sentiment_chart(sentiment_data)
-        st.plotly_chart(fig_sentiment, use_container_width=True)
-        
-        # Thèmes clés
-        key_themes = sentiment_data.get('key_themes', [])
-        if key_themes:
-            st.markdown("#### 🏷️ Thèmes principaux")
-            themes_df = pd.DataFrame({'Thèmes': key_themes})
-            st.dataframe(themes_df, hide_index=True)
     
     # Navigation selon Cursor rules
     st.markdown("---")
@@ -346,13 +328,13 @@ def step_3_proposition_note():
     with col1:
         st.markdown("### 🎯 Note suggérée par l'IA")
         
-        # Affichage visuel de la note
+        # Affichage visuel de la note - amélioration visibilité selon demande utilisateur
         rating_display = "⭐" * int(suggested_rating) + "☆" * (5 - int(suggested_rating))
         st.markdown(f"""
-        <div style='text-align: center; padding: 20px; background-color: #f0f2f6; border-radius: 10px; margin: 10px 0;'>
-            <h1 style='color: {settings.streamlit_theme_primary_color}; margin: 0;'>{suggested_rating}/5</h1>
-            <h3 style='margin: 5px 0;'>{rating_display}</h3>
-            <p style='margin: 0; font-style: italic;'>Confiance: {confidence:.1%}</p>
+        <div style='text-align: center; padding: 30px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 15px; margin: 15px 0; box-shadow: 0 4px 15px rgba(0,0,0,0.2);'>
+            <h1 style='color: white; margin: 0; font-size: 3em; text-shadow: 2px 2px 4px rgba(0,0,0,0.3);'>{suggested_rating}/5</h1>
+            <h2 style='margin: 10px 0; color: #FFD700; text-shadow: 1px 1px 2px rgba(0,0,0,0.3);'>{rating_display}</h2>
+            <p style='margin: 0; font-style: italic; color: #E0E0E0; font-size: 1.1em;'>Confiance: {confidence:.1%}</p>
         </div>
         """, unsafe_allow_html=True)
         
@@ -378,22 +360,7 @@ def step_3_proposition_note():
         fig_rating = create_rating_breakdown_chart(rating_data)
         st.plotly_chart(fig_rating, use_container_width=True)
         
-        # Comparaison avec note locale si disponible
-        local_rating = rating_data.get('local_rating', {})
-        if local_rating:
-            local_suggested = local_rating.get('local_suggested_rating', 3.0)
-            
-            st.markdown("#### 🔍 Validation croisée")
-            st.metric(
-                "Note IA Mistral", 
-                f"{suggested_rating}/5",
-                delta=None
-            )
-            st.metric(
-                "Note calcul local", 
-                f"{local_suggested}/5",
-                delta=f"{local_suggested - suggested_rating:+.1f}" if abs(local_suggested - suggested_rating) > 0.1 else None
-            )
+        # Section "Note calcul local" supprimée selon demande utilisateur
     
     # Navigation selon Cursor rules
     st.markdown("---")
@@ -421,14 +388,8 @@ def step_4_validation():
     
     suggested_rating = st.session_state.rating_calculation.get('suggested_rating', 3.0)
     
-    # Système d'onglets pour les deux types de validation
-    tab1, tab2 = st.tabs(["🎯 Ajustement Rapide", "📋 Évaluation Détaillée"])
-    
-    with tab1:
-        render_quick_adjustment_tab(suggested_rating)
-    
-    with tab2:
-        render_detailed_evaluation_tab(suggested_rating)
+    # Évaluation détaillée uniquement selon demande client
+    render_detailed_evaluation_tab(suggested_rating)
     
     # Navigation selon Cursor rules
     st.markdown("---")
@@ -448,51 +409,7 @@ def step_4_validation():
             st.rerun()
 
 
-def render_quick_adjustment_tab(suggested_rating: float):
-    """Onglet d'ajustement rapide (interface originale)"""
-    col1, col2 = st.columns([1, 1])
-    
-    with col1:
-        st.markdown("### 🎯 Note proposée par l'IA")
-        st.markdown(f"""
-        <div style='text-align: center; padding: 15px; background-color: #e8f4f8; border-radius: 10px;'>
-            <h2>{suggested_rating}/5 ⭐</h2>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.markdown("### ⚖️ Ajustement si nécessaire")
-        st.markdown("Vous pouvez ajuster cette note si elle ne reflète pas parfaitement votre expérience :")
-        
-        # Slider d'ajustement selon Cursor rules
-        adjusted_rating = st.slider(
-            "Note finale",
-            min_value=1.0,
-            max_value=5.0,
-            value=float(suggested_rating),
-            step=0.5,
-            help="Ajustez la note selon votre ressenti personnel",
-            key="quick_adjustment_rating"
-        )
-        
-        # Indication de changement
-        if abs(adjusted_rating - suggested_rating) > 0.1:
-            difference = adjusted_rating - suggested_rating
-            st.info(f"Ajustement: {difference:+.1f} point{'s' if abs(difference) > 1 else ''}")
-        
-        # Raison de l'ajustement si modifié
-        if abs(adjusted_rating - suggested_rating) > 0.1:
-            adjustment_reason = st.text_area(
-                "Pourquoi cet ajustement ? (optionnel)",
-                placeholder="Expliquez pourquoi vous modifiez la note suggérée...",
-                help="Cela nous aide à améliorer notre algorithme",
-                key="quick_adjustment_reason"
-            )
-            st.session_state.adjustment_reason = adjustment_reason
-        
-        st.session_state.quick_adjusted_rating = adjusted_rating
-    
-    with col2:
-        render_summary_panel(suggested_rating, adjusted_rating)
+
 
 
 def render_detailed_evaluation_tab(suggested_rating: float):
@@ -605,16 +522,10 @@ def render_detailed_evaluation_tab(suggested_rating: float):
     st.markdown("---")
     st.markdown("### 📊 Comparaison des approches")
     
-    col1, col2, col3 = st.columns(3)
+    col1, col2 = st.columns(2)
     with col1:
         st.metric("Note IA", f"{suggested_rating:.1f}/5", help="Note calculée par l'Intelligence Artificielle")
     with col2:
-        quick_rating = st.session_state.get('quick_adjusted_rating', suggested_rating)
-        difference_quick = quick_rating - suggested_rating
-        st.metric("Ajustement rapide", f"{quick_rating:.1f}/5", 
-                 delta=f"{difference_quick:+.1f}" if abs(difference_quick) > 0.1 else None,
-                 help="Note ajustée rapidement")
-    with col3:
         difference_detailed = note_questions_fermees - suggested_rating
         st.metric("Questions fermées", f"{note_questions_fermees:.1f}/5",
                  delta=f"{difference_detailed:+.1f}" if abs(difference_detailed) > 0.1 else None,
@@ -636,11 +547,10 @@ def convert_text_to_rating(text_choice: str) -> float:
 
 def calculate_final_composite_rating(suggested_rating: float):
     """Calcule la note finale composite selon les Cursor rules"""
-    quick_rating = st.session_state.get('quick_adjusted_rating', suggested_rating)
     detailed_rating = st.session_state.get('note_questions_fermees', suggested_rating)
     
-    # Moyenne pondérée : 40% IA, 30% ajustement rapide, 30% questions fermées
-    final_rating = (0.4 * suggested_rating + 0.3 * quick_rating + 0.3 * detailed_rating)
+    # Moyenne pondérée : 50% IA, 50% questions fermées (ajustement rapide supprimé)
+    final_rating = (0.5 * suggested_rating + 0.5 * detailed_rating)
     
     # S'assurer que la note reste dans les limites selon Cursor rules
     final_rating = max(1.0, min(5.0, final_rating))
@@ -648,10 +558,9 @@ def calculate_final_composite_rating(suggested_rating: float):
     st.session_state.final_rating = final_rating
     st.session_state.composite_calculation = {
         'ai_rating': suggested_rating,
-        'quick_rating': quick_rating,
         'detailed_rating': detailed_rating,
         'final_composite': final_rating,
-        'weights': {'ai': 0.4, 'quick': 0.3, 'detailed': 0.3}
+        'weights': {'ai': 0.5, 'detailed': 0.5}
     }
 
 
@@ -708,12 +617,12 @@ def step_5_resultat_final():
         rating_stars = "⭐" * int(final_rating) + "☆" * (5 - int(final_rating))
         
         st.markdown(f"""
-        <div style='padding: 20px; background-color: #f8f9fa; border-left: 5px solid {settings.streamlit_theme_primary_color}; border-radius: 5px; margin: 10px 0;'>
-            <h3 style='margin-top: 0; color: {settings.streamlit_theme_primary_color};'>Note finale composite: {final_rating:.1f}/5 {rating_stars}</h3>
-            <p><strong>Sentiment:</strong> {st.session_state.sentiment_analysis.get('sentiment', '').title()}</p>
-            <p><strong>Méthode:</strong> Moyenne pondérée (IA: 40%, Ajustement: 30%, Questions fermées: 30%)</p>
-            <p><strong>Avis:</strong></p>
-            <em>"{st.session_state.avis_text}"</em>
+        <div style='padding: 25px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 15px; margin: 15px 0; box-shadow: 0 4px 15px rgba(0,0,0,0.2);'>
+            <h2 style='margin-top: 0; color: white; text-shadow: 2px 2px 4px rgba(0,0,0,0.3);'>Note finale composite: {final_rating:.1f}/5 {rating_stars}</h2>
+            <p style='color: #E0E0E0; font-size: 1.1em;'><strong>Sentiment:</strong> {st.session_state.sentiment_analysis.get('sentiment', '').title()}</p>
+            <p style='color: #E0E0E0; font-size: 1.1em;'><strong>Méthode:</strong> Moyenne pondérée (IA: 50%, Questions fermées: 50%)</p>
+            <p style='color: #E0E0E0; font-size: 1.1em;'><strong>Avis:</strong></p>
+            <em style='color: #F0F0F0; font-size: 1.05em;'>"{st.session_state.avis_text}"</em>
         </div>
         """, unsafe_allow_html=True)
         
@@ -722,13 +631,11 @@ def step_5_resultat_final():
             st.markdown("#### 🔍 Détail de la composition de la note")
             comp = st.session_state.composite_calculation
             
-            col_comp1, col_comp2, col_comp3 = st.columns(3)
+            col_comp1, col_comp2 = st.columns(2)
             with col_comp1:
-                st.metric("Note IA (40%)", f"{comp['ai_rating']:.1f}/5")
+                st.metric("Note IA (50%)", f"{comp['ai_rating']:.1f}/5")
             with col_comp2:
-                st.metric("Ajustement rapide (30%)", f"{comp['quick_rating']:.1f}/5")
-            with col_comp3:
-                st.metric("Questions fermées (30%)", f"{comp['detailed_rating']:.1f}/5")
+                st.metric("Questions fermées (50%)", f"{comp['detailed_rating']:.1f}/5")
         
         # Détail des évaluations par questions fermées
         if 'note_etablissement' in st.session_state and 'note_medecins' in st.session_state:
@@ -853,9 +760,7 @@ def step_5_resultat_final():
                     }
                 }
             },
-            "note_questions_fermees": st.session_state.get('note_questions_fermees', None),
-            "quick_adjusted_rating": st.session_state.get('quick_adjusted_rating', None),
-            "adjustment_reason": st.session_state.get('adjustment_reason', None)
+            "note_questions_fermees": st.session_state.get('note_questions_fermees', None)
         }
         
         export_json = json.dumps(export_data, ensure_ascii=False, indent=2)
