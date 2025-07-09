@@ -90,6 +90,25 @@ def init_session_state():
     
     if 'analysis_complete' not in st.session_state:
         st.session_state.analysis_complete = False
+    
+    # Nouvelles variables pour les questions fermées
+    if 'quick_adjusted_rating' not in st.session_state:
+        st.session_state.quick_adjusted_rating = None
+    
+    if 'note_etablissement' not in st.session_state:
+        st.session_state.note_etablissement = None
+    
+    if 'note_medecins' not in st.session_state:
+        st.session_state.note_medecins = None
+    
+    if 'note_questions_fermees' not in st.session_state:
+        st.session_state.note_questions_fermees = None
+    
+    if 'composite_calculation' not in st.session_state:
+        st.session_state.composite_calculation = None
+    
+    if 'adjustment_reason' not in st.session_state:
+        st.session_state.adjustment_reason = ""
 
 
 def render_sidebar():
@@ -393,7 +412,7 @@ def step_3_proposition_note():
 
 
 def step_4_validation():
-    """Écran 4: Validation avec possibilité d'ajustement selon les Cursor rules"""
+    """Écran 4: Validation avec questions fermées et ajustement selon les Cursor rules"""
     st.header("✅ Étape 4 : Validation de votre note")
     
     if not st.session_state.rating_calculation:
@@ -402,6 +421,35 @@ def step_4_validation():
     
     suggested_rating = st.session_state.rating_calculation.get('suggested_rating', 3.0)
     
+    # Système d'onglets pour les deux types de validation
+    tab1, tab2 = st.tabs(["🎯 Ajustement Rapide", "📋 Évaluation Détaillée"])
+    
+    with tab1:
+        render_quick_adjustment_tab(suggested_rating)
+    
+    with tab2:
+        render_detailed_evaluation_tab(suggested_rating)
+    
+    # Navigation selon Cursor rules
+    st.markdown("---")
+    col1, col2, col3 = st.columns([1, 1, 1])
+    
+    with col1:
+        if st.button("← Modifier la note", use_container_width=True):
+            st.session_state.current_step = 3
+            st.rerun()
+    
+    with col3:
+        if st.button("Finaliser l'avis ✨", type="primary", use_container_width=True):
+            # Calculer la note finale composite
+            calculate_final_composite_rating(suggested_rating)
+            st.session_state.analysis_complete = True
+            st.session_state.current_step = 5
+            st.rerun()
+
+
+def render_quick_adjustment_tab(suggested_rating: float):
+    """Onglet d'ajustement rapide (interface originale)"""
     col1, col2 = st.columns([1, 1])
     
     with col1:
@@ -422,7 +470,8 @@ def step_4_validation():
             max_value=5.0,
             value=float(suggested_rating),
             step=0.5,
-            help="Ajustez la note selon votre ressenti personnel"
+            help="Ajustez la note selon votre ressenti personnel",
+            key="quick_adjustment_rating"
         )
         
         # Indication de changement
@@ -435,56 +484,207 @@ def step_4_validation():
             adjustment_reason = st.text_area(
                 "Pourquoi cet ajustement ? (optionnel)",
                 placeholder="Expliquez pourquoi vous modifiez la note suggérée...",
-                help="Cela nous aide à améliorer notre algorithme"
+                help="Cela nous aide à améliorer notre algorithme",
+                key="quick_adjustment_reason"
             )
             st.session_state.adjustment_reason = adjustment_reason
         
-        st.session_state.final_rating = adjusted_rating
+        st.session_state.quick_adjusted_rating = adjusted_rating
     
     with col2:
-        st.markdown("### 📋 Récapitulatif de votre avis")
-        
-        # Résumé complet selon Cursor rules
-        sentiment = st.session_state.sentiment_analysis.get('sentiment', 'neutre')
-        confidence = st.session_state.sentiment_analysis.get('confidence', 0.0)
-        
-        st.markdown(f"""
-        **Sentiment détecté:** {sentiment.title()}  
-        **Confiance de l'analyse:** {confidence:.1%}  
-        **Note originale IA:** {suggested_rating}/5  
-        **Note finale:** {adjusted_rating}/5  
-        """)
-        
-        # Aperçu du texte
-        st.markdown("**Extrait de votre avis:**")
-        preview_text = st.session_state.avis_text[:200] + "..." if len(st.session_state.avis_text) > 200 else st.session_state.avis_text
-        st.markdown(f"> {preview_text}")
-        
-        # Métriques finales
-        st.markdown("#### 📊 Statistiques")
-        word_count = len(st.session_state.avis_text.split())
-        char_count = len(st.session_state.avis_text)
-        
-        col_stats1, col_stats2 = st.columns(2)
-        with col_stats1:
-            st.metric("Mots", word_count)
-        with col_stats2:
-            st.metric("Caractères", char_count)
+        render_summary_panel(suggested_rating, adjusted_rating)
+
+
+def render_detailed_evaluation_tab(suggested_rating: float):
+    """Onglet d'évaluation détaillée avec questions fermées"""
+    st.markdown("### 📝 Évaluation détaillée par questions fermées")
+    st.markdown("Cette évaluation vous permet d'affiner votre note en répondant à des questions spécifiques.")
     
-    # Navigation selon Cursor rules
-    st.markdown("---")
-    col1, col2, col3 = st.columns([1, 1, 1])
+    col1, col2 = st.columns([1, 1])
     
     with col1:
-        if st.button("← Modifier la note", use_container_width=True):
-            st.session_state.current_step = 3
-            st.rerun()
+        st.markdown("#### 🏥 **Établissement**")
+        st.markdown("*Évaluez la qualité de l'établissement en donnant une note sur 5 pour chaque aspect :*")
+        
+        # Questions établissement avec stockage en session
+        etab_medecins = st.slider(
+            "Votre relation avec les médecins",
+            min_value=1, max_value=5, value=3,
+            help="Qualité de la communication et des interactions avec les médecins",
+            key="etab_medecins"
+        )
+        
+        etab_personnel = st.slider(
+            "Votre relation avec le personnel",
+            min_value=1, max_value=5, value=3,
+            help="Qualité des interactions avec les infirmières, aides-soignants, etc.",
+            key="etab_personnel"
+        )
+        
+        etab_accueil = st.slider(
+            "L'accueil",
+            min_value=1, max_value=5, value=3,
+            help="Qualité de l'accueil à votre arrivée dans l'établissement",
+            key="etab_accueil"
+        )
+        
+        etab_prise_charge = st.slider(
+            "La prise en charge jusqu'à la sortie",
+            min_value=1, max_value=5, value=3,
+            help="Qualité du suivi médical du début à la fin de votre séjour",
+            key="etab_prise_charge"
+        )
+        
+        etab_confort = st.slider(
+            "Les chambres et les repas",
+            min_value=1, max_value=5, value=3,
+            help="Qualité de l'hébergement et de la restauration",
+            key="etab_confort"
+        )
+        
+        # Calcul note établissement
+        note_etablissement = (etab_medecins + etab_personnel + etab_accueil + etab_prise_charge + etab_confort) / 5
+        st.session_state.note_etablissement = note_etablissement
+        
+        st.markdown(f"**Note Établissement : {note_etablissement:.1f}/5** ⭐")
     
+    with col2:
+        st.markdown("#### 👨‍⚕️ **Médecins**")
+        st.markdown("*Comment évaluez-vous la relation avec votre médecin ?*")
+        
+        # Questions médecins avec choix multiples (on peut convertir en notes)
+        medecin_explications = st.select_slider(
+            "Qualité des explications",
+            options=["Très insuffisantes", "Insuffisantes", "Correctes", "Bonnes", "Excellentes"],
+            value="Correctes",
+            key="medecin_explications"
+        )
+        
+        medecin_confiance = st.select_slider(
+            "Sentiment de confiance",
+            options=["Aucune confiance", "Peu de confiance", "Confiance modérée", "Bonne confiance", "Confiance totale"],
+            value="Confiance modérée",
+            key="medecin_confiance"
+        )
+        
+        medecin_motivation = st.select_slider(
+            "Motivation à respecter la prescription",
+            options=["Aucune motivation", "Peu motivé", "Moyennement motivé", "Bien motivé", "Très motivé"],
+            value="Moyennement motivé",
+            key="medecin_motivation"
+        )
+        
+        medecin_respect = st.select_slider(
+            "Respect de votre identité, préférences et besoins",
+            options=["Pas du tout", "Peu respectueux", "Modérément respectueux", "Respectueux", "Très respectueux"],
+            value="Modérément respectueux",
+            key="medecin_respect"
+        )
+        
+        # Calcul note médecins (conversion des choix en notes)
+        medecin_scores = {
+            medecin_explications: convert_text_to_rating(medecin_explications),
+            medecin_confiance: convert_text_to_rating(medecin_confiance),
+            medecin_motivation: convert_text_to_rating(medecin_motivation),
+            medecin_respect: convert_text_to_rating(medecin_respect)
+        }
+        
+        note_medecins = sum(medecin_scores.values()) / len(medecin_scores)
+        st.session_state.note_medecins = note_medecins
+        
+        st.markdown(f"**Note Médecins : {note_medecins:.1f}/5** ⭐")
+        
+        # Note composite des questions fermées
+        note_questions_fermees = (note_etablissement + note_medecins) / 2
+        st.session_state.note_questions_fermees = note_questions_fermees
+        
+        st.markdown("---")
+        st.markdown(f"### 🎯 **Note composite questions fermées : {note_questions_fermees:.1f}/5**")
+    
+    # Comparaison des notes
+    st.markdown("---")
+    st.markdown("### 📊 Comparaison des approches")
+    
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Note IA", f"{suggested_rating:.1f}/5", help="Note calculée par l'Intelligence Artificielle")
+    with col2:
+        quick_rating = st.session_state.get('quick_adjusted_rating', suggested_rating)
+        difference_quick = quick_rating - suggested_rating
+        st.metric("Ajustement rapide", f"{quick_rating:.1f}/5", 
+                 delta=f"{difference_quick:+.1f}" if abs(difference_quick) > 0.1 else None,
+                 help="Note ajustée rapidement")
     with col3:
-        if st.button("Finaliser l'avis ✨", type="primary", use_container_width=True):
-            st.session_state.analysis_complete = True
-            st.session_state.current_step = 5
-            st.rerun()
+        difference_detailed = note_questions_fermees - suggested_rating
+        st.metric("Questions fermées", f"{note_questions_fermees:.1f}/5",
+                 delta=f"{difference_detailed:+.1f}" if abs(difference_detailed) > 0.1 else None,
+                 help="Note calculée via questions détaillées")
+
+
+def convert_text_to_rating(text_choice: str) -> float:
+    """Convertit les choix textuels en notes numériques selon les Cursor rules"""
+    mapping = {
+        # Pour explications, confiance, motivation, respect
+        "Très insuffisantes": 1.0, "Aucune confiance": 1.0, "Aucune motivation": 1.0, "Pas du tout": 1.0,
+        "Insuffisantes": 2.0, "Peu de confiance": 2.0, "Peu motivé": 2.0, "Peu respectueux": 2.0,
+        "Correctes": 3.0, "Confiance modérée": 3.0, "Moyennement motivé": 3.0, "Modérément respectueux": 3.0,
+        "Bonnes": 4.0, "Bonne confiance": 4.0, "Bien motivé": 4.0, "Respectueux": 4.0,
+        "Excellentes": 5.0, "Confiance totale": 5.0, "Très motivé": 5.0, "Très respectueux": 5.0
+    }
+    return mapping.get(text_choice, 3.0)
+
+
+def calculate_final_composite_rating(suggested_rating: float):
+    """Calcule la note finale composite selon les Cursor rules"""
+    quick_rating = st.session_state.get('quick_adjusted_rating', suggested_rating)
+    detailed_rating = st.session_state.get('note_questions_fermees', suggested_rating)
+    
+    # Moyenne pondérée : 40% IA, 30% ajustement rapide, 30% questions fermées
+    final_rating = (0.4 * suggested_rating + 0.3 * quick_rating + 0.3 * detailed_rating)
+    
+    # S'assurer que la note reste dans les limites selon Cursor rules
+    final_rating = max(1.0, min(5.0, final_rating))
+    
+    st.session_state.final_rating = final_rating
+    st.session_state.composite_calculation = {
+        'ai_rating': suggested_rating,
+        'quick_rating': quick_rating,
+        'detailed_rating': detailed_rating,
+        'final_composite': final_rating,
+        'weights': {'ai': 0.4, 'quick': 0.3, 'detailed': 0.3}
+    }
+
+
+def render_summary_panel(suggested_rating: float, adjusted_rating: float):
+    """Panneau de résumé réutilisable"""
+    st.markdown("### 📋 Récapitulatif de votre avis")
+    
+    # Résumé complet selon Cursor rules
+    sentiment = st.session_state.sentiment_analysis.get('sentiment', 'neutre')
+    confidence = st.session_state.sentiment_analysis.get('confidence', 0.0)
+    
+    st.markdown(f"""
+    **Sentiment détecté:** {sentiment.title()}  
+    **Confiance de l'analyse:** {confidence:.1%}  
+    **Note originale IA:** {suggested_rating}/5  
+    **Note ajustée:** {adjusted_rating}/5  
+    """)
+    
+    # Aperçu du texte
+    st.markdown("**Extrait de votre avis:**")
+    preview_text = st.session_state.avis_text[:200] + "..." if len(st.session_state.avis_text) > 200 else st.session_state.avis_text
+    st.markdown(f"> {preview_text}")
+    
+    # Métriques finales
+    st.markdown("#### 📊 Statistiques")
+    word_count = len(st.session_state.avis_text.split())
+    char_count = len(st.session_state.avis_text)
+    
+    col_stats1, col_stats2 = st.columns(2)
+    with col_stats1:
+        st.metric("Mots", word_count)
+    with col_stats2:
+        st.metric("Caractères", char_count)
 
 
 def step_5_resultat_final():
@@ -503,18 +703,70 @@ def step_5_resultat_final():
     with col1:
         st.markdown("### 📋 Votre avis finalisé")
         
-        # Carte récapitulative
+        # Carte récapitulative avec détails de la note composite
         final_rating = st.session_state.final_rating
         rating_stars = "⭐" * int(final_rating) + "☆" * (5 - int(final_rating))
         
         st.markdown(f"""
         <div style='padding: 20px; background-color: #f8f9fa; border-left: 5px solid {settings.streamlit_theme_primary_color}; border-radius: 5px; margin: 10px 0;'>
-            <h3 style='margin-top: 0; color: {settings.streamlit_theme_primary_color};'>Note finale: {final_rating}/5 {rating_stars}</h3>
+            <h3 style='margin-top: 0; color: {settings.streamlit_theme_primary_color};'>Note finale composite: {final_rating:.1f}/5 {rating_stars}</h3>
             <p><strong>Sentiment:</strong> {st.session_state.sentiment_analysis.get('sentiment', '').title()}</p>
+            <p><strong>Méthode:</strong> Moyenne pondérée (IA: 40%, Ajustement: 30%, Questions fermées: 30%)</p>
             <p><strong>Avis:</strong></p>
             <em>"{st.session_state.avis_text}"</em>
         </div>
         """, unsafe_allow_html=True)
+        
+        # Détail de la composition de la note
+        if 'composite_calculation' in st.session_state:
+            st.markdown("#### 🔍 Détail de la composition de la note")
+            comp = st.session_state.composite_calculation
+            
+            col_comp1, col_comp2, col_comp3 = st.columns(3)
+            with col_comp1:
+                st.metric("Note IA (40%)", f"{comp['ai_rating']:.1f}/5")
+            with col_comp2:
+                st.metric("Ajustement rapide (30%)", f"{comp['quick_rating']:.1f}/5")
+            with col_comp3:
+                st.metric("Questions fermées (30%)", f"{comp['detailed_rating']:.1f}/5")
+        
+        # Détail des évaluations par questions fermées
+        if 'note_etablissement' in st.session_state and 'note_medecins' in st.session_state:
+            st.markdown("#### 📋 Détail des évaluations spécifiques")
+            
+            with st.expander("🏥 Évaluation Établissement"):
+                etab_note = st.session_state.note_etablissement
+                st.markdown(f"**Note globale établissement : {etab_note:.1f}/5**")
+                
+                # Récupérer les notes individuelles depuis la session
+                scores = {
+                    "Relation médecins": st.session_state.get('etab_medecins', 3),
+                    "Relation personnel": st.session_state.get('etab_personnel', 3),
+                    "Accueil": st.session_state.get('etab_accueil', 3),
+                    "Prise en charge": st.session_state.get('etab_prise_charge', 3),
+                    "Chambres et repas": st.session_state.get('etab_confort', 3)
+                }
+                
+                for aspect, score in scores.items():
+                    stars = "⭐" * score + "☆" * (5 - score)
+                    st.markdown(f"• **{aspect}**: {score}/5 {stars}")
+            
+            with st.expander("👨‍⚕️ Évaluation Médecins"):
+                med_note = st.session_state.note_medecins
+                st.markdown(f"**Note globale médecins : {med_note:.1f}/5**")
+                
+                # Récupérer les évaluations textuelles depuis la session
+                evaluations = {
+                    "Qualité des explications": st.session_state.get('medecin_explications', 'Correctes'),
+                    "Sentiment de confiance": st.session_state.get('medecin_confiance', 'Confiance modérée'),
+                    "Motivation prescription": st.session_state.get('medecin_motivation', 'Moyennement motivé'),
+                    "Respect identité/besoins": st.session_state.get('medecin_respect', 'Modérément respectueux')
+                }
+                
+                for aspect, evaluation in evaluations.items():
+                    score = convert_text_to_rating(evaluation)
+                    stars = "⭐" * int(score) + "☆" * (5 - int(score))
+                    st.markdown(f"• **{aspect}**: {evaluation} ({score:.1f}/5) {stars}")
         
         # Génération titre suggéré selon Cursor rules
         if st.button("Générer un titre suggéré 📝"):
@@ -568,7 +820,42 @@ def step_5_resultat_final():
             "final_rating": final_rating,
             "sentiment_analysis": sentiment_data,
             "rating_calculation": rating_data,
-            "analysis_timestamp": pd.Timestamp.now().isoformat()
+            "analysis_timestamp": pd.Timestamp.now().isoformat(),
+            
+            # Nouvelles données des questions fermées
+            "composite_calculation": st.session_state.get('composite_calculation', {}),
+            "detailed_evaluations": {
+                "etablissement": {
+                    "note_globale": st.session_state.get('note_etablissement', None),
+                    "relation_medecins": st.session_state.get('etab_medecins', None),
+                    "relation_personnel": st.session_state.get('etab_personnel', None),
+                    "accueil": st.session_state.get('etab_accueil', None),
+                    "prise_en_charge": st.session_state.get('etab_prise_charge', None),
+                    "chambres_repas": st.session_state.get('etab_confort', None)
+                },
+                "medecins": {
+                    "note_globale": st.session_state.get('note_medecins', None),
+                    "qualite_explications": {
+                        "evaluation": st.session_state.get('medecin_explications', None),
+                        "note": convert_text_to_rating(st.session_state.get('medecin_explications', 'Correctes'))
+                    },
+                    "sentiment_confiance": {
+                        "evaluation": st.session_state.get('medecin_confiance', None),
+                        "note": convert_text_to_rating(st.session_state.get('medecin_confiance', 'Confiance modérée'))
+                    },
+                    "motivation_prescription": {
+                        "evaluation": st.session_state.get('medecin_motivation', None),
+                        "note": convert_text_to_rating(st.session_state.get('medecin_motivation', 'Moyennement motivé'))
+                    },
+                    "respect_identite": {
+                        "evaluation": st.session_state.get('medecin_respect', None),
+                        "note": convert_text_to_rating(st.session_state.get('medecin_respect', 'Modérément respectueux'))
+                    }
+                }
+            },
+            "note_questions_fermees": st.session_state.get('note_questions_fermees', None),
+            "quick_adjusted_rating": st.session_state.get('quick_adjusted_rating', None),
+            "adjustment_reason": st.session_state.get('adjustment_reason', None)
         }
         
         export_json = json.dumps(export_data, ensure_ascii=False, indent=2)
