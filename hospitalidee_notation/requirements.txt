@@ -1,0 +1,33 @@
+# IA et ML
+mistralai>=0.4.0  # Client officiel Mistral AI
+transformers>=4.30.0  # Pour preprocessing si nécessaire
+
+# Web et API
+streamlit>=1.28.0  # Interface utilisateur
+flask>=3.1.0  # Backend API
+plotly>=6.0.0  # Graphiques et visualisations
+pandas>=2.0.0  # Manipulation de données
+requests>=2.31.0  # Appels HTTP
+
+# Utilitaires
+python-dotenv>=1.0.0  # Variables d'environnement
+pydantic>=2.0.0  # Validation des données
+pydantic-settings>=2.0.0  # Configuration avec Pydantic
+loguru>=0.7.0  # Logging avancé
+
+# Tests
+pytest>=7.4.0
+pytest-cov>=4.1.0
+pytest-mock>=3.11.0
+pytest-asyncio>=1.0.0
+
+# Cache et Performance
+redis>=4.6.0  # Cache des résultats Mistral
+
+# Sécurité
+cryptography>=41.0.0  # Chiffrement pour données sensibles
+
+# Développement
+black>=23.0.0  # Formatage de code
+flake8>=6.0.0  # Linter
+mypy>=1.0.0  # Type checking 
