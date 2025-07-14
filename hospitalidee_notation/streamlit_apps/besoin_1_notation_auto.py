@@ -116,8 +116,8 @@ def render_sidebar():
     
     st.sidebar.markdown("---")
     
-    # Indicateur de progression
-    steps = ["Saisie", "Analyse", "Proposition", "Validation", "Résultat"]
+    # Indicateur de progression - nouveau workflow
+    steps = ["Questionnaire", "Saisie", "Note IA", "Analyse hybride", "Résultat"]
     current = st.session_state.current_step
     
     for i, step in enumerate(steps, 1):
@@ -149,273 +149,14 @@ def render_sidebar():
         )
 
 
-def step_1_saisie_avis():
-    """Écran 1: Saisie d'avis avec analyse en temps réel selon les Cursor rules"""
-    st.header("📝 Étape 1 : Saisie de votre avis")
+def step_1_questionnaire():
+    """Écran 1: Questionnaire avec questions fermées selon nouveau workflow"""
+    st.header("📋 Étape 1 : Questionnaire d'évaluation")
     
-    col1, col2 = st.columns([2, 1])
-    
-    with col1:
-        st.markdown("""
-        **Partagez votre expérience** dans l'établissement de santé. 
-        Plus votre avis sera détaillé, plus notre analyse sera précise.
-        """)
-        
-        # Zone de texte principale avec callback selon Cursor rules
-        avis_text = st.text_area(
-            label="Votre avis complet",
-            value=st.session_state.avis_text,
-            height=200,
-            placeholder="Décrivez votre expérience : accueil, soins reçus, personnel, confort...",
-            help="Partagez tous les aspects de votre séjour qui vous semblent importants"
-        )
-        
-        # Mise à jour en temps réel
-        if avis_text != st.session_state.avis_text:
-            st.session_state.avis_text = avis_text
-            # Déclencher une nouvelle analyse si le texte a suffisamment changé
-            if len(avis_text.strip()) > 10:
-                st.rerun()
-    
-    with col2:
-        # Indicateurs en temps réel selon Cursor rules
-        if avis_text and len(avis_text.strip()) > 10:
-            with st.spinner("Analyse en cours..."):
-                try:
-                    # Analyse sentiment en temps réel
-                    sentiment_result = analyze_sentiment(avis_text)
-                    st.session_state.sentiment_analysis = sentiment_result
-                    
-                    # Affichage des métriques
-                    sentiment = sentiment_result.get('sentiment', 'neutre')
-                    confidence = sentiment_result.get('confidence', 0.0)
-                    intensity = sentiment_result.get('emotional_intensity', 0.5)
-                    
-                    st.markdown("### 🎯 Analyse instantanée")
-                    
-                    # Sentiment avec couleur
-                    sentiment_display = {
-                        'positif': ('🟢 Positif', 'sentiment-positive'),
-                        'negatif': ('🔴 Négatif', 'sentiment-negative'),
-                        'neutre': ('🟡 Neutre', 'sentiment-neutral')
-                    }.get(sentiment, ('🟡 Neutre', 'sentiment-neutral'))
-                    
-                    st.markdown(f'<div class="{sentiment_display[1]}">{sentiment_display[0]}</div>', 
-                              unsafe_allow_html=True)
-                    
-                    # Métriques visuelles selon Cursor rules
-                    st.metric("Confiance", f"{confidence:.1%}")
-                    st.metric("Intensité émotionnelle", f"{intensity:.1%}")
-                    
-                    # Graphique de répartition supprimé selon demande utilisateur
-                    
-                    # Indicateurs détaillés
-                    word_count = len(avis_text.split())
-                    st.metric("Mots analysés", word_count)
-                    
-                except Exception as e:
-                    st.error(f"Erreur d'analyse : {str(e)}")
-        
-        else:
-            st.info("Commencez à écrire votre avis pour voir l'analyse en temps réel")
-    
-    # Navigation selon Cursor rules
-    st.markdown("---")
-    col1, col2, col3 = st.columns([1, 2, 1])
-    
-    with col2:
-        if st.button("Continuer vers l'analyse complète 📊", type="primary", use_container_width=True):
-            if len(avis_text.strip()) > 20:  # Validation minimum
-                st.session_state.current_step = 2
-                st.rerun()
-            else:
-                st.error("Veuillez écrire un avis plus détaillé (minimum 20 caractères)")
-
-
-def step_2_analyse_complete():
-    """Écran 2: Analyse complète avec détails selon les Cursor rules"""
-    st.header("🔍 Étape 2 : Analyse complète de votre avis")
-    
-    if not st.session_state.sentiment_analysis:
-        st.error("Analyse de sentiment manquante. Retournez à l'étape 1.")
-        return
-    
-    sentiment_data = st.session_state.sentiment_analysis
-    
-    # Affichage des résultats détaillés selon Cursor rules - colonnes supprimées selon demande utilisateur
-    st.markdown("### 📊 Résultats de l'analyse")
-    
-    # Métriques principales
-    metrics_col1, metrics_col2, metrics_col3 = st.columns(3)
-    
-    with metrics_col1:
-        sentiment = sentiment_data.get('sentiment', 'neutre')
-        st.metric("Sentiment global", sentiment.title())
-    
-    with metrics_col2:
-        confidence = sentiment_data.get('confidence', 0.0)
-        st.metric("Niveau de confiance", f"{confidence:.1%}")
-    
-    with metrics_col3:
-        intensity = sentiment_data.get('emotional_intensity', 0.5)
-        st.metric("Intensité émotionnelle", f"{intensity:.1%}")
-    
-    # Indicateurs positifs et négatifs
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("#### 🟢 Aspects positifs détectés")
-        positive_indicators = sentiment_data.get('positive_indicators', [])
-        if positive_indicators:
-            for indicator in positive_indicators[:5]:  # Limite affichage
-                st.markdown(f"• {indicator}")
-        else:
-            st.info("Aucun aspect positif spécifique détecté")
-    
-    with col2:
-        st.markdown("#### 🔴 Aspects négatifs détectés")
-        negative_indicators = sentiment_data.get('negative_indicators', [])
-        if negative_indicators:
-            for indicator in negative_indicators[:5]:  # Limite affichage
-                st.markdown(f"• {indicator}")
-        else:
-            st.info("Aucun aspect négatif spécifique détecté")
-    
-    # Navigation selon Cursor rules
-    st.markdown("---")
-    col1, col2, col3 = st.columns([1, 1, 1])
-    
-    with col1:
-        if st.button("← Retour à la saisie", use_container_width=True):
-            st.session_state.current_step = 1
-            st.rerun()
-    
-    with col3:
-        if st.button("Calculer la note suggérée →", type="primary", use_container_width=True):
-            st.session_state.current_step = 3
-            st.rerun()
-
-
-def step_3_proposition_note():
-    """Écran 3: Proposition de note avec justification selon les Cursor rules"""
-    st.header("⭐ Étape 3 : Note suggérée par l'IA")
-    
-    if not st.session_state.sentiment_analysis:
-        st.error("Analyse de sentiment manquante")
-        return
-    
-    # Calcul de la note si pas déjà fait
-    if not st.session_state.rating_calculation:
-        with st.spinner("Calcul de la note en cours..."):
-            try:
-                rating_result = calculate_rating_from_text(
-                    st.session_state.avis_text, 
-                    st.session_state.sentiment_analysis
-                )
-                st.session_state.rating_calculation = rating_result
-            except Exception as e:
-                st.error(f"Erreur lors du calcul : {str(e)}")
-                return
-    
-    rating_data = st.session_state.rating_calculation
-    suggested_rating = rating_data.get('suggested_rating', 3.0)
-    confidence = rating_data.get('confidence', 0.0)
-    justification = rating_data.get('justification', "Calcul automatique")
-    
-    # Affichage de la note suggérée selon Cursor rules
-    col1, col2 = st.columns([1, 1])
-    
-    with col1:
-        st.markdown("### 🎯 Note suggérée par l'IA")
-        
-        # Affichage visuel de la note - amélioration visibilité selon demande utilisateur
-        rating_display = "⭐" * int(suggested_rating) + "☆" * (5 - int(suggested_rating))
-        st.markdown(f"""
-        <div style='text-align: center; padding: 30px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 15px; margin: 15px 0; box-shadow: 0 4px 15px rgba(0,0,0,0.2);'>
-            <h1 style='color: white; margin: 0; font-size: 3em; text-shadow: 2px 2px 4px rgba(0,0,0,0.3);'>{suggested_rating}/5</h1>
-            <h2 style='margin: 10px 0; color: #FFD700; text-shadow: 1px 1px 2px rgba(0,0,0,0.3);'>{rating_display}</h2>
-            <p style='margin: 0; font-style: italic; color: #E0E0E0; font-size: 1.1em;'>Confiance: {confidence:.1%}</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Justification détaillée
-        st.markdown("#### 💭 Justification de l'IA")
-        st.info(justification)
-        
-        # Facteurs de calcul selon Cursor rules
-        factors = rating_data.get('factors', {})
-        if factors:
-            st.markdown("#### ⚖️ Facteurs pris en compte")
-            factors_df = pd.DataFrame([
-                {"Facteur": "Impact du sentiment", "Poids": f"{factors.get('sentiment_weight', 0.5):.1%}"},
-                {"Facteur": "Intensité émotionnelle", "Poids": f"{factors.get('intensity_weight', 0.3):.1%}"},
-                {"Facteur": "Richesse du contenu", "Poids": f"{factors.get('content_weight', 0.2):.1%}"}
-            ])
-            st.dataframe(factors_df, hide_index=True)
-    
-    with col2:
-        st.markdown("### 📊 Analyse comparative")
-        
-        # Graphique comparatif selon Cursor rules
-        fig_rating = create_rating_breakdown_chart(rating_data)
-        st.plotly_chart(fig_rating, use_container_width=True)
-        
-        # Section "Note calcul local" supprimée selon demande utilisateur
-    
-    # Navigation selon Cursor rules
-    st.markdown("---")
-    col1, col2, col3 = st.columns([1, 1, 1])
-    
-    with col1:
-        if st.button("← Retour à l'analyse", use_container_width=True):
-            st.session_state.current_step = 2
-            st.rerun()
-    
-    with col3:
-        if st.button("Valider cette note →", type="primary", use_container_width=True):
-            st.session_state.final_rating = suggested_rating
-            st.session_state.current_step = 4
-            st.rerun()
-
-
-def step_4_validation():
-    """Écran 4: Validation avec questions fermées et ajustement selon les Cursor rules"""
-    st.header("✅ Étape 4 : Validation de votre note")
-    
-    if not st.session_state.rating_calculation:
-        st.error("Calcul de note manquant")
-        return
-    
-    suggested_rating = st.session_state.rating_calculation.get('suggested_rating', 3.0)
-    
-    # Évaluation détaillée uniquement selon demande client
-    render_detailed_evaluation_tab(suggested_rating)
-    
-    # Navigation selon Cursor rules
-    st.markdown("---")
-    col1, col2, col3 = st.columns([1, 1, 1])
-    
-    with col1:
-        if st.button("← Modifier la note", use_container_width=True):
-            st.session_state.current_step = 3
-            st.rerun()
-    
-    with col3:
-        if st.button("Finaliser l'avis ✨", type="primary", use_container_width=True):
-            # Calculer la note finale composite
-            calculate_final_composite_rating(suggested_rating)
-            st.session_state.analysis_complete = True
-            st.session_state.current_step = 5
-            st.rerun()
-
-
-
-
-
-def render_detailed_evaluation_tab(suggested_rating: float):
-    """Onglet d'évaluation détaillée avec questions fermées"""
-    st.markdown("### 📝 Évaluation détaillée par questions fermées")
-    st.markdown("Cette évaluation vous permet d'affiner votre note en répondant à des questions spécifiques.")
+    st.markdown("""
+    **Évaluez votre expérience** en répondant aux questions suivantes. 
+    Cette évaluation nous permettra de mieux comprendre votre ressenti lors de l'analyse de votre avis textuel.
+    """)
     
     col1, col2 = st.columns([1, 1])
     
@@ -514,22 +255,410 @@ def render_detailed_evaluation_tab(suggested_rating: float):
         # Note composite des questions fermées
         note_questions_fermees = (note_etablissement + note_medecins) / 2
         st.session_state.note_questions_fermees = note_questions_fermees
-        
-        st.markdown("---")
-        st.markdown(f"### 🎯 **Note composite questions fermées : {note_questions_fermees:.1f}/5**")
     
-    # Comparaison des notes
+    # Résumé du questionnaire
     st.markdown("---")
-    st.markdown("### 📊 Comparaison des approches")
+    st.markdown("### 🎯 Résumé de votre évaluation")
     
-    col1, col2 = st.columns(2)
-    with col1:
-        st.metric("Note IA", f"{suggested_rating:.1f}/5", help="Note calculée par l'Intelligence Artificielle")
+    col_summary1, col_summary2, col_summary3 = st.columns(3)
+    with col_summary1:
+        st.metric("Note Établissement", f"{note_etablissement:.1f}/5", help="Moyenne des 5 aspects évalués")
+    with col_summary2:
+        st.metric("Note Médecins", f"{note_medecins:.1f}/5", help="Moyenne des 4 critères évalués")
+    with col_summary3:
+        st.metric("Note Questionnaire", f"{note_questions_fermees:.1f}/5", help="Note composite du questionnaire")
+    
+    # Navigation
+    st.markdown("---")
+    col1, col2, col3 = st.columns([1, 2, 1])
+    
     with col2:
-        difference_detailed = note_questions_fermees - suggested_rating
-        st.metric("Questions fermées", f"{note_questions_fermees:.1f}/5",
-                 delta=f"{difference_detailed:+.1f}" if abs(difference_detailed) > 0.1 else None,
-                 help="Note calculée via questions détaillées")
+        if st.button("Continuer vers la saisie d'avis 📝", type="primary", use_container_width=True):
+            st.session_state.current_step = 2
+            st.rerun()
+
+
+def step_2_saisie_avis():
+    """Écran 2: Saisie d'avis avec analyse en temps réel selon nouveau workflow"""
+    st.header("📝 Étape 2 : Saisie de votre avis")
+    
+    # Affichage du résumé questionnaire
+    if st.session_state.get('note_questions_fermees'):
+        st.info(f"✅ Questionnaire complété - Note: {st.session_state.note_questions_fermees:.1f}/5")
+    else:
+        st.warning("⚠️ Questionnaire non complété. Retournez à l'étape 1.")
+    
+    col1, col2 = st.columns([2, 1])
+    
+    with col1:
+        st.markdown("""
+        **Partagez votre expérience** dans l'établissement de santé. 
+        Plus votre avis sera détaillé, plus notre analyse sera précise et cohérente avec votre évaluation.
+        """)
+        
+        # Zone de texte principale avec callback selon Cursor rules
+        avis_text = st.text_area(
+            label="Votre avis complet",
+            value=st.session_state.avis_text,
+            height=200,
+            placeholder="Décrivez votre expérience : accueil, soins reçus, personnel, confort...",
+            help="Partagez tous les aspects de votre séjour qui vous semblent importants"
+        )
+        
+        # Mise à jour en temps réel
+        if avis_text != st.session_state.avis_text:
+            st.session_state.avis_text = avis_text
+            # Déclencher une nouvelle analyse si le texte a suffisamment changé
+            if len(avis_text.strip()) > 10:
+                st.rerun()
+    
+    with col2:
+        # Indicateurs en temps réel selon Cursor rules
+        if avis_text and len(avis_text.strip()) > 10:
+            with st.spinner("Analyse en cours..."):
+                try:
+                    # Analyse sentiment en temps réel
+                    sentiment_result = analyze_sentiment(avis_text)
+                    st.session_state.sentiment_analysis = sentiment_result
+                    
+                    # Affichage des métriques
+                    sentiment = sentiment_result.get('sentiment', 'neutre')
+                    confidence = sentiment_result.get('confidence', 0.0)
+                    intensity = sentiment_result.get('emotional_intensity', 0.5)
+                    
+                    st.markdown("### 🎯 Analyse instantanée")
+                    
+                    # Sentiment avec couleur
+                    sentiment_display = {
+                        'positif': ('🟢 Positif', 'sentiment-positive'),
+                        'negatif': ('🔴 Négatif', 'sentiment-negative'),
+                        'neutre': ('🟡 Neutre', 'sentiment-neutral')
+                    }.get(sentiment, ('🟡 Neutre', 'sentiment-neutral'))
+                    
+                    st.markdown(f'<div class="{sentiment_display[1]}">{sentiment_display[0]}</div>', 
+                              unsafe_allow_html=True)
+                    
+                    # Métriques visuelles selon Cursor rules
+                    st.metric("Confiance", f"{confidence:.1%}")
+                    st.metric("Intensité émotionnelle", f"{intensity:.1%}")
+                    
+                    # Indicateurs détaillés
+                    word_count = len(avis_text.split())
+                    st.metric("Mots analysés", word_count)
+                    
+                    # Cohérence avec questionnaire
+                    if st.session_state.get('note_questions_fermees'):
+                        questionnaire_note = st.session_state.note_questions_fermees
+                        # Estimation sentiment vs questionnaire
+                        sentiment_score = {'negatif': 2.0, 'neutre': 3.0, 'positif': 4.0}.get(sentiment, 3.0)
+                        coherence = 1 - abs(sentiment_score - questionnaire_note) / 5
+                        
+                        st.markdown("#### 🔗 Cohérence")
+                        st.metric("Avec questionnaire", f"{coherence:.0%}")
+                    
+                except Exception as e:
+                    st.error(f"Erreur d'analyse : {str(e)}")
+        
+        else:
+            st.info("Commencez à écrire votre avis pour voir l'analyse en temps réel")
+    
+    # Navigation selon Cursor rules
+    st.markdown("---")
+    col1, col2, col3 = st.columns([1, 2, 1])
+    
+    with col1:
+        if st.button("← Retour questionnaire", use_container_width=True):
+            st.session_state.current_step = 1
+            st.rerun()
+    
+    with col3:
+        if st.button("Calculer la note IA →", type="primary", use_container_width=True):
+            if len(avis_text.strip()) > 20:  # Validation minimum
+                st.session_state.current_step = 3
+                st.rerun()
+            else:
+                st.error("Veuillez écrire un avis plus détaillé (minimum 20 caractères)")
+
+
+def step_3_note_ia():
+    """Écran 3: Note suggérée par l'IA en tenant compte du questionnaire selon nouveau workflow"""
+    st.header("⭐ Étape 3 : Note suggérée par l'IA")
+    
+    if not st.session_state.sentiment_analysis:
+        st.error("Analyse de sentiment manquante. Retournez à l'étape 2.")
+        return
+    
+    if not st.session_state.get('note_questions_fermees'):
+        st.error("Questionnaire non complété. Retournez à l'étape 1.")
+        return
+    
+    # Calcul de la note IA hybride si pas déjà fait
+    if not st.session_state.rating_calculation:
+        with st.spinner("Calcul de la note IA hybride en cours..."):
+            try:
+                # Calcul avec prise en compte du questionnaire
+                rating_result = calculate_rating_from_text(
+                    st.session_state.avis_text, 
+                    st.session_state.sentiment_analysis,
+                    questionnaire_context=st.session_state.note_questions_fermees
+                )
+                st.session_state.rating_calculation = rating_result
+            except Exception as e:
+                st.error(f"Erreur lors du calcul : {str(e)}")
+                return
+    
+    rating_data = st.session_state.rating_calculation
+    suggested_rating = rating_data.get('suggested_rating', 3.0)
+    confidence = rating_data.get('confidence', 0.0)
+    justification = rating_data.get('justification', "Calcul automatique")
+    
+    # Affichage de la note suggérée selon Cursor rules
+    col1, col2 = st.columns([1, 1])
+    
+    with col1:
+        st.markdown("### 🎯 Note suggérée par l'IA hybride")
+        
+        # Affichage visuel de la note - amélioration visibilité selon demande utilisateur
+        rating_display = "⭐" * int(suggested_rating) + "☆" * (5 - int(suggested_rating))
+        st.markdown(f"""
+        <div style='text-align: center; padding: 30px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 15px; margin: 15px 0; box-shadow: 0 4px 15px rgba(0,0,0,0.2);'>
+            <h1 style='color: white; margin: 0; font-size: 3em; text-shadow: 2px 2px 4px rgba(0,0,0,0.3);'>{suggested_rating}/5</h1>
+            <h2 style='margin: 10px 0; color: #FFD700; text-shadow: 1px 1px 2px rgba(0,0,0,0.3);'>{rating_display}</h2>
+            <p style='margin: 0; font-style: italic; color: #E0E0E0; font-size: 1.1em;'>Confiance: {confidence:.1%}</p>
+            <p style='margin: 5px 0; color: #F0F0F0; font-size: 0.9em;'>🔗 Analyse hybride (Questionnaire + Avis textuel)</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Justification détaillée
+        st.markdown("#### 💭 Justification de l'IA")
+        st.info(justification)
+        
+        # Comparaison avec le questionnaire
+        questionnaire_note = st.session_state.note_questions_fermees
+        difference = suggested_rating - questionnaire_note
+        
+        st.markdown("#### 🔗 Cohérence avec le questionnaire")
+        col_coh1, col_coh2, col_coh3 = st.columns(3)
+        with col_coh1:
+            st.metric("Note questionnaire", f"{questionnaire_note:.1f}/5")
+        with col_coh2:
+            st.metric("Note IA hybride", f"{suggested_rating:.1f}/5")
+        with col_coh3:
+            st.metric("Écart", f"{difference:+.1f}", 
+                     delta_color="normal" if abs(difference) < 1 else "inverse")
+        
+        # Facteurs de calcul selon Cursor rules
+        factors = rating_data.get('factors', {})
+        if factors:
+            st.markdown("#### ⚖️ Facteurs pris en compte")
+            factors_df = pd.DataFrame([
+                {"Facteur": "Questionnaire fermé", "Poids": f"{factors.get('questionnaire_weight', 0.4):.1%}"},
+                {"Facteur": "Sentiment textuel", "Poids": f"{factors.get('sentiment_weight', 0.3):.1%}"},
+                {"Facteur": "Intensité émotionnelle", "Poids": f"{factors.get('intensity_weight', 0.2):.1%}"},
+                {"Facteur": "Richesse du contenu", "Poids": f"{factors.get('content_weight', 0.1):.1%}"}
+            ])
+            st.dataframe(factors_df, hide_index=True)
+    
+    with col2:
+        st.markdown("### 📊 Analyse comparative")
+        
+        # Graphique comparatif selon Cursor rules
+        fig_rating = create_rating_breakdown_chart(rating_data)
+        st.plotly_chart(fig_rating, use_container_width=True)
+        
+        # Section "Note calcul local" supprimée selon demande utilisateur
+    
+    # Navigation selon Cursor rules
+    st.markdown("---")
+    col1, col2, col3 = st.columns([1, 1, 1])
+    
+    with col1:
+        if st.button("← Retour saisie avis", use_container_width=True):
+            st.session_state.current_step = 2
+            st.rerun()
+    
+    with col3:
+        if st.button("Voir analyse hybride →", type="primary", use_container_width=True):
+            st.session_state.current_step = 4
+            st.rerun()
+
+
+def step_4_analyse_hybride():
+    """Écran 4: Analyse complète hybride selon nouveau workflow"""
+    st.header("🔍 Étape 4 : Analyse complète hybride")
+    
+    if not st.session_state.rating_calculation:
+        st.error("Calcul de note IA manquant. Retournez à l'étape 3.")
+        return
+    
+    if not st.session_state.sentiment_analysis:
+        st.error("Analyse de sentiment manquante. Retournez à l'étape 2.")
+        return
+    
+    if not st.session_state.get('note_questions_fermees'):
+        st.error("Questionnaire non complété. Retournez à l'étape 1.")
+        return
+    
+    # Données pour l'analyse hybride
+    sentiment_data = st.session_state.sentiment_analysis
+    rating_data = st.session_state.rating_calculation
+    suggested_rating = rating_data.get('suggested_rating', 3.0)
+    questionnaire_note = st.session_state.note_questions_fermees
+    
+    st.markdown("""
+    Cette analyse combine les résultats du **questionnaire structuré** et de l'**analyse textuelle** 
+    pour offrir une vue complète de votre expérience.
+    """)
+    
+    # Vue d'ensemble hybride
+    st.markdown("### 📊 Vue d'ensemble hybride")
+    
+    col_overview1, col_overview2, col_overview3, col_overview4 = st.columns(4)
+    with col_overview1:
+        st.metric("Note Questionnaire", f"{questionnaire_note:.1f}/5", help="Basée sur vos réponses structurées")
+    with col_overview2:
+        sentiment = sentiment_data.get('sentiment', 'neutre')
+        st.metric("Sentiment Textuel", sentiment.title(), help="Détecté dans votre avis")
+    with col_overview3:
+        st.metric("Note IA Hybride", f"{suggested_rating:.1f}/5", help="Combinaison intelligente des deux approches")
+    with col_overview4:
+        confidence = sentiment_data.get('confidence', 0.0)
+        st.metric("Confiance Globale", f"{confidence:.1%}", help="Fiabilité de l'analyse")
+    
+    # Analyse détaillée en colonnes
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("### 📋 Analyse du questionnaire")
+        
+        # Détail établissement
+        if st.session_state.get('note_etablissement'):
+            etab_note = st.session_state.note_etablissement
+            st.markdown(f"**🏥 Établissement : {etab_note:.1f}/5**")
+            
+            # Sous-scores établissement
+            scores_etab = {
+                "Médecins": st.session_state.get('etab_medecins', 3),
+                "Personnel": st.session_state.get('etab_personnel', 3),
+                "Accueil": st.session_state.get('etab_accueil', 3),
+                "Prise en charge": st.session_state.get('etab_prise_charge', 3),
+                "Confort": st.session_state.get('etab_confort', 3)
+            }
+            
+            for aspect, score in scores_etab.items():
+                progress = score / 5
+                st.progress(progress, text=f"{aspect}: {score}/5")
+        
+        # Détail médecins
+        if st.session_state.get('note_medecins'):
+            med_note = st.session_state.note_medecins
+            st.markdown(f"**👨‍⚕️ Médecins : {med_note:.1f}/5**")
+            
+            evaluations_med = {
+                "Explications": st.session_state.get('medecin_explications', 'Correctes'),
+                "Confiance": st.session_state.get('medecin_confiance', 'Confiance modérée'),
+                "Motivation": st.session_state.get('medecin_motivation', 'Moyennement motivé'),
+                "Respect": st.session_state.get('medecin_respect', 'Modérément respectueux')
+            }
+            
+            for aspect, evaluation in evaluations_med.items():
+                score = convert_text_to_rating(evaluation)
+                progress = score / 5
+                st.progress(progress, text=f"{aspect}: {evaluation} ({score:.1f}/5)")
+    
+    with col2:
+        st.markdown("### 📝 Analyse textuelle")
+        
+        # Métriques sentiment
+        sentiment = sentiment_data.get('sentiment', 'neutre')
+        confidence = sentiment_data.get('confidence', 0.0)
+        intensity = sentiment_data.get('emotional_intensity', 0.5)
+        
+        sentiment_color = {
+            'positif': '🟢',
+            'negatif': '🔴',
+            'neutre': '🟡'
+        }.get(sentiment, '🟡')
+        
+        st.markdown(f"**{sentiment_color} Sentiment global : {sentiment.title()}**")
+        st.progress(confidence, text=f"Confiance: {confidence:.1%}")
+        st.progress(intensity, text=f"Intensité émotionnelle: {intensity:.1%}")
+        
+        # Indicateurs positifs et négatifs
+        st.markdown("**🟢 Aspects positifs détectés**")
+        positive_indicators = sentiment_data.get('positive_indicators', [])
+        if positive_indicators:
+            for indicator in positive_indicators[:3]:
+                st.markdown(f"• {indicator}")
+        else:
+            st.info("Aucun aspect positif spécifique détecté")
+        
+        st.markdown("**🔴 Aspects négatifs détectés**")
+        negative_indicators = sentiment_data.get('negative_indicators', [])
+        if negative_indicators:
+            for indicator in negative_indicators[:3]:
+                st.markdown(f"• {indicator}")
+        else:
+            st.info("Aucun aspect négatif spécifique détecté")
+    
+    # Synthèse hybride
+    st.markdown("---")
+    st.markdown("### 🎯 Synthèse hybride")
+    
+    difference = suggested_rating - questionnaire_note
+    coherence_percent = max(0, 1 - abs(difference) / 5) * 100
+    
+    col_synth1, col_synth2 = st.columns(2)
+    
+    with col_synth1:
+        st.markdown("#### 🔗 Cohérence des approches")
+        st.progress(coherence_percent / 100, text=f"Cohérence: {coherence_percent:.0f}%")
+        
+        if abs(difference) < 0.5:
+            st.success("✅ Excellente cohérence entre questionnaire et analyse textuelle")
+        elif abs(difference) < 1.0:
+            st.info("ℹ️ Bonne cohérence avec quelques nuances")
+        else:
+            st.warning("⚠️ Écart significatif détecté - analyse approfondie requise")
+    
+    with col_synth2:
+        st.markdown("#### 📈 Répartition des sources")
+        factors = rating_data.get('factors', {})
+        
+        # Graphique simple de répartition
+        sources = ['Questionnaire', 'Sentiment', 'Intensité', 'Contenu']
+        weights = [
+            factors.get('questionnaire_weight', 0.4) * 100,
+            factors.get('sentiment_weight', 0.3) * 100,
+            factors.get('intensity_weight', 0.2) * 100,
+            factors.get('content_weight', 0.1) * 100
+        ]
+        
+        for source, weight in zip(sources, weights):
+            st.progress(weight / 100, text=f"{source}: {weight:.0f}%")
+    
+    # Navigation selon Cursor rules
+    st.markdown("---")
+    col1, col2, col3 = st.columns([1, 1, 1])
+    
+    with col1:
+        if st.button("← Retour note IA", use_container_width=True):
+            st.session_state.current_step = 3
+            st.rerun()
+    
+    with col3:
+        if st.button("Finaliser l'avis ✨", type="primary", use_container_width=True):
+            # Calculer la note finale (déjà calculée dans l'IA hybride)
+            st.session_state.final_rating = suggested_rating
+            st.session_state.analysis_complete = True
+            st.session_state.current_step = 5
+            st.rerun()
+
+
+
+
+
+
 
 
 def convert_text_to_rating(text_choice: str) -> float:
@@ -545,55 +674,10 @@ def convert_text_to_rating(text_choice: str) -> float:
     return mapping.get(text_choice, 3.0)
 
 
-def calculate_final_composite_rating(suggested_rating: float):
-    """Calcule la note finale composite selon les Cursor rules"""
-    detailed_rating = st.session_state.get('note_questions_fermees', suggested_rating)
-    
-    # Moyenne pondérée : 50% IA, 50% questions fermées (ajustement rapide supprimé)
-    final_rating = (0.5 * suggested_rating + 0.5 * detailed_rating)
-    
-    # S'assurer que la note reste dans les limites selon Cursor rules
-    final_rating = max(1.0, min(5.0, final_rating))
-    
-    st.session_state.final_rating = final_rating
-    st.session_state.composite_calculation = {
-        'ai_rating': suggested_rating,
-        'detailed_rating': detailed_rating,
-        'final_composite': final_rating,
-        'weights': {'ai': 0.5, 'detailed': 0.5}
-    }
 
 
-def render_summary_panel(suggested_rating: float, adjusted_rating: float):
-    """Panneau de résumé réutilisable"""
-    st.markdown("### 📋 Récapitulatif de votre avis")
-    
-    # Résumé complet selon Cursor rules
-    sentiment = st.session_state.sentiment_analysis.get('sentiment', 'neutre')
-    confidence = st.session_state.sentiment_analysis.get('confidence', 0.0)
-    
-    st.markdown(f"""
-    **Sentiment détecté:** {sentiment.title()}  
-    **Confiance de l'analyse:** {confidence:.1%}  
-    **Note originale IA:** {suggested_rating}/5  
-    **Note ajustée:** {adjusted_rating}/5  
-    """)
-    
-    # Aperçu du texte
-    st.markdown("**Extrait de votre avis:**")
-    preview_text = st.session_state.avis_text[:200] + "..." if len(st.session_state.avis_text) > 200 else st.session_state.avis_text
-    st.markdown(f"> {preview_text}")
-    
-    # Métriques finales
-    st.markdown("#### 📊 Statistiques")
-    word_count = len(st.session_state.avis_text.split())
-    char_count = len(st.session_state.avis_text)
-    
-    col_stats1, col_stats2 = st.columns(2)
-    with col_stats1:
-        st.metric("Mots", word_count)
-    with col_stats2:
-        st.metric("Caractères", char_count)
+
+
 
 
 def step_5_resultat_final():
@@ -618,24 +702,29 @@ def step_5_resultat_final():
         
         st.markdown(f"""
         <div style='padding: 25px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 15px; margin: 15px 0; box-shadow: 0 4px 15px rgba(0,0,0,0.2);'>
-            <h2 style='margin-top: 0; color: white; text-shadow: 2px 2px 4px rgba(0,0,0,0.3);'>Note finale composite: {final_rating:.1f}/5 {rating_stars}</h2>
+            <h2 style='margin-top: 0; color: white; text-shadow: 2px 2px 4px rgba(0,0,0,0.3);'>Note finale hybride: {final_rating:.1f}/5 {rating_stars}</h2>
             <p style='color: #E0E0E0; font-size: 1.1em;'><strong>Sentiment:</strong> {st.session_state.sentiment_analysis.get('sentiment', '').title()}</p>
-            <p style='color: #E0E0E0; font-size: 1.1em;'><strong>Méthode:</strong> Moyenne pondérée (IA: 50%, Questions fermées: 50%)</p>
+            <p style='color: #E0E0E0; font-size: 1.1em;'><strong>Méthode:</strong> IA hybride (Questionnaire + Analyse textuelle)</p>
             <p style='color: #E0E0E0; font-size: 1.1em;'><strong>Avis:</strong></p>
             <em style='color: #F0F0F0; font-size: 1.05em;'>"{st.session_state.avis_text}"</em>
         </div>
         """, unsafe_allow_html=True)
         
-        # Détail de la composition de la note
-        if 'composite_calculation' in st.session_state:
-            st.markdown("#### 🔍 Détail de la composition de la note")
-            comp = st.session_state.composite_calculation
+        # Détail de la composition hybride
+        if st.session_state.get('rating_calculation'):
+            st.markdown("#### 🔍 Détail de la composition hybride")
+            rating_data = st.session_state.rating_calculation
+            questionnaire_note = st.session_state.get('note_questions_fermees', 0)
             
-            col_comp1, col_comp2 = st.columns(2)
+            col_comp1, col_comp2, col_comp3 = st.columns(3)
             with col_comp1:
-                st.metric("Note IA (50%)", f"{comp['ai_rating']:.1f}/5")
+                st.metric("Note Questionnaire", f"{questionnaire_note:.1f}/5", help="Évaluation structurée")
             with col_comp2:
-                st.metric("Questions fermées (50%)", f"{comp['detailed_rating']:.1f}/5")
+                sentiment = st.session_state.sentiment_analysis.get('sentiment', 'neutre')
+                sentiment_score = {'negatif': 2.0, 'neutre': 3.0, 'positif': 4.0}.get(sentiment, 3.0)
+                st.metric("Sentiment Textuel", f"{sentiment_score:.1f}/5", help="Analyse du texte")
+            with col_comp3:
+                st.metric("Note IA Hybride", f"{final_rating:.1f}/5", help="Synthèse intelligente")
         
         # Détail des évaluations par questions fermées
         if 'note_etablissement' in st.session_state and 'note_medecins' in st.session_state:
@@ -729,8 +818,8 @@ def step_5_resultat_final():
             "rating_calculation": rating_data,
             "analysis_timestamp": pd.Timestamp.now().isoformat(),
             
-            # Nouvelles données des questions fermées
-            "composite_calculation": st.session_state.get('composite_calculation', {}),
+            # Données hybrides
+            "workflow_type": "hybride_questionnaire_puis_texte",
             "detailed_evaluations": {
                 "etablissement": {
                     "note_globale": st.session_state.get('note_etablissement', None),
@@ -786,7 +875,7 @@ def step_5_resultat_final():
             st.rerun()
     
     with col2:
-        if st.button("← Modifier l'avis", use_container_width=True):
+        if st.button("← Retour analyse", use_container_width=True):
             st.session_state.current_step = 4
             st.rerun()
     
@@ -878,17 +967,17 @@ def main():
     init_session_state()
     render_sidebar()
     
-    # Routage par étapes selon Cursor rules
+    # Routage par étapes selon nouveau workflow
     current_step = st.session_state.current_step
     
     if current_step == 1:
-        step_1_saisie_avis()
+        step_1_questionnaire()
     elif current_step == 2:
-        step_2_analyse_complete()
+        step_2_saisie_avis()
     elif current_step == 3:
-        step_3_proposition_note()
+        step_3_note_ia()
     elif current_step == 4:
-        step_4_validation()
+        step_4_analyse_hybride()
     elif current_step == 5:
         step_5_resultat_final()
     else:

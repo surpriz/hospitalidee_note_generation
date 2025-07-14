@@ -245,6 +245,94 @@ class MistralClient:
                 "error": str(e)
             }
     
+    def calculate_hybrid_rating(self, sentiment_analysis: Dict[str, Any], questionnaire_note: float) -> Dict[str, Any]:
+        """
+        Calcule une note hybride basée sur l'analyse de sentiment ET le questionnaire
+        
+        Args:
+            sentiment_analysis: Résultat de l'analyse de sentiment
+            questionnaire_note: Note du questionnaire fermé (1-5)
+            
+        Returns:
+            dict: Note hybride avec justification
+        """
+        # Prompt spécialisé pour l'analyse hybride
+        hybrid_prompt = f"""
+Tu es un expert en évaluation d'établissements de santé. Tu dois calculer une note finale sur 5 en combinant intelligemment:
+
+1. QUESTIONNAIRE STRUCTURÉ: {questionnaire_note}/5
+   (Évaluation directe par questions fermées)
+
+2. ANALYSE TEXTUELLE: {json.dumps(sentiment_analysis, ensure_ascii=False)}
+   (Analyse du sentiment et émotions dans l'avis écrit)
+
+INSTRUCTIONS:
+- Pondère les deux sources selon leur fiabilité et cohérence
+- Si cohérentes: moyenne pondérée (40% questionnaire, 60% analyse textuelle)
+- Si divergentes: explique pourquoi et privilégie la source la plus fiable
+- Note finale OBLIGATOIREMENT entre 1 et 5
+- Justifie ton raisonnement
+
+RÉPONSE OBLIGATOIRE au format JSON:
+{{
+    "suggested_rating": 3.2,
+    "confidence": 0.85,
+    "justification": "Explication détaillée de la synthèse",
+    "factors": {{
+        "questionnaire_weight": 0.4,
+        "sentiment_weight": 0.3,
+        "intensity_weight": 0.2,
+        "content_weight": 0.1
+    }},
+    "coherence_analysis": "Analyse de la cohérence entre questionnaire et texte",
+    "hybrid_approach": "Description de l'approche hybride utilisée"
+}}
+        """
+        
+        cache_key = self._generate_cache_key(hybrid_prompt, questionnaire_note=questionnaire_note)
+        
+        try:
+            result = self._cached_api_call(cache_key, hybrid_prompt)
+            
+            # Validation de la note selon Cursor rules (1-5)
+            if "suggested_rating" in result:
+                rating = result["suggested_rating"]
+                if not (1 <= rating <= 5):
+                    self.logger.warning(f"Note hybride hors limites: {rating}")
+                    result["suggested_rating"] = max(1, min(5, rating))
+            
+            # Ajout des métadonnées hybrides
+            result["hybrid_mode"] = True
+            result["questionnaire_input"] = questionnaire_note
+            result["sentiment_input"] = sentiment_analysis.get("sentiment", "neutre")
+            
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"Erreur lors du calcul hybride: {e}")
+            # Mode dégradé: moyenne simple des deux sources
+            sentiment = sentiment_analysis.get("sentiment", "neutre")
+            sentiment_rating = {"positif": 4.0, "neutre": 3.0, "negatif": 2.0}.get(sentiment, 3.0)
+            
+            # Moyenne pondérée simple en cas d'erreur
+            fallback_rating = round(0.5 * questionnaire_note + 0.5 * sentiment_rating, 1)
+            fallback_rating = max(1.0, min(5.0, fallback_rating))
+            
+            return {
+                "suggested_rating": fallback_rating,
+                "confidence": 0.0,
+                "justification": f"Calcul hybride en mode dégradé: moyenne entre questionnaire ({questionnaire_note}) et sentiment ({sentiment_rating})",
+                "factors": {
+                    "questionnaire_weight": 0.5,
+                    "sentiment_weight": 0.3,
+                    "intensity_weight": 0.1,
+                    "content_weight": 0.1
+                },
+                "hybrid_mode": True,
+                "error": str(e),
+                "fallback_mode": True
+            }
+    
     def check_coherence(self, partial_ratings: Dict[str, int], verbatim: str) -> Dict[str, Any]:
         """
         Vérifie la cohérence entre notes partielles et verbatim

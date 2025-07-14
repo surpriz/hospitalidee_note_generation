@@ -23,13 +23,14 @@ class RatingCalculator:
         self.sentiment_analyzer = SentimentAnalyzer(self.mistral_client)
         self.logger = logging.getLogger(__name__)
     
-    def calculate_rating_from_text(self, text: str, sentiment_analysis: Dict[str, Any] = None) -> Dict[str, Any]:
+    def calculate_rating_from_text(self, text: str, sentiment_analysis: Dict[str, Any] = None, questionnaire_context: float = None) -> Dict[str, Any]:
         """
-        Calcule une note sur 5 basée sur l'analyse de sentiment
+        Calcule une note sur 5 basée sur l'analyse de sentiment et optionnellement le questionnaire
         
         Args:
             text: Texte de l'avis patient
             sentiment_analysis: Analyse de sentiment optionnelle (si None, sera calculée)
+            questionnaire_context: Note du questionnaire pour analyse hybride
             
         Returns:
             dict: {
@@ -37,6 +38,7 @@ class RatingCalculator:
                 'confidence': 0.0-1.0,
                 'justification': str,
                 'factors': {
+                    'questionnaire_weight': float (si questionnaire fourni),
                     'sentiment_weight': float,
                     'intensity_weight': float,
                     'content_weight': float
@@ -52,20 +54,36 @@ class RatingCalculator:
             if sentiment_analysis is None:
                 sentiment_analysis = self.sentiment_analyzer.analyze_sentiment(text)
             
-            # Calcul avec Mistral AI
-            result = self.mistral_client.calculate_rating(sentiment_analysis)
+            # Calcul avec Mistral AI (hybride si questionnaire fourni)
+            if questionnaire_context is not None:
+                result = self.mistral_client.calculate_hybrid_rating(sentiment_analysis, questionnaire_context)
+            else:
+                result = self.mistral_client.calculate_rating(sentiment_analysis)
             
             # Validation et enrichissement du résultat
             validated_result = self._validate_rating_result(result)
             
-            # Ajout du calcul local pour comparaison
-            local_rating = self._calculate_local_rating(sentiment_analysis, text)
-            validated_result['local_rating'] = local_rating
+            # Ajout des facteurs hybrides si applicable
+            if questionnaire_context is not None:
+                validated_result['factors'].update({
+                    'questionnaire_weight': 0.4,
+                    'sentiment_weight': 0.3,
+                    'intensity_weight': 0.2,
+                    'content_weight': 0.1
+                })
+                validated_result['hybrid_mode'] = True
+                validated_result['questionnaire_note'] = questionnaire_context
+            
+            # Ajout du calcul local pour comparaison (seulement si pas hybride)
+            if questionnaire_context is None:
+                local_rating = self._calculate_local_rating(sentiment_analysis, text)
+                validated_result['local_rating'] = local_rating
             
             # Ajustement final basé sur la cohérence
-            final_result = self._adjust_rating_with_coherence(validated_result, sentiment_analysis)
+            final_result = self._adjust_rating_with_coherence(validated_result, sentiment_analysis, questionnaire_context)
             
-            self.logger.info(f"Calcul de note réussi: {final_result['suggested_rating']}/5 "
+            mode = "hybride" if questionnaire_context is not None else "standard"
+            self.logger.info(f"Calcul de note {mode} réussi: {final_result['suggested_rating']}/5 "
                            f"(confiance: {final_result['confidence']:.2f})")
             
             return final_result
@@ -281,7 +299,7 @@ class RatingCalculator:
         return validated
     
     def _adjust_rating_with_coherence(self, rating_result: Dict[str, Any], 
-                                    sentiment_analysis: Dict[str, Any]) -> Dict[str, Any]:
+                                    sentiment_analysis: Dict[str, Any], questionnaire_context: float = None) -> Dict[str, Any]:
         """Ajuste la note finale en fonction de la cohérence globale"""
         mistral_rating = rating_result['suggested_rating']
         local_rating = rating_result.get('local_rating', {}).get('local_suggested_rating', 3.0)
@@ -352,13 +370,13 @@ class RatingCalculator:
 
 
 # Fonctions standalone pour compatibilité avec les Cursor rules
-def calculate_rating_from_text(text: str, sentiment_analysis: Dict[str, Any] = None) -> Dict[str, Any]:
+def calculate_rating_from_text(text: str, sentiment_analysis: Dict[str, Any] = None, questionnaire_context: float = None) -> Dict[str, Any]:
     """
-    Calcule une note sur 5 basée sur l'analyse de sentiment
+    Calcule une note sur 5 basée sur l'analyse de sentiment et optionnellement le questionnaire
     Function standalone selon les Cursor rules
     """
     calculator = RatingCalculator()
-    return calculator.calculate_rating_from_text(text, sentiment_analysis)
+    return calculator.calculate_rating_from_text(text, sentiment_analysis, questionnaire_context)
 
 
 def calculate_partial_ratings(criteria_scores: Dict[str, int], verbatim: str) -> Dict[str, Any]:
