@@ -21,6 +21,13 @@ import json
 from typing import Dict, Any
 
 # Imports des modules selon les Cursor rules
+import importlib
+import sys
+
+# Force refresh du module rating_calculator pour éviter les problèmes de cache
+if 'src.rating_calculator' in sys.modules:
+    importlib.reload(sys.modules['src.rating_calculator'])
+
 from src.sentiment_analyzer import analyze_sentiment
 from src.rating_calculator import calculate_rating_from_text
 from src.mistral_client import MistralClient
@@ -140,8 +147,17 @@ def render_sidebar():
                 st.sidebar.markdown(f"🔄 **{i}. {step}**")
             else:
                 st.sidebar.markdown(f"⏸️ {i}. {step}")
-    else:
-        st.sidebar.markdown("🎯 **Sélection du type d'évaluation**")
+        
+        # Affichage du type d'évaluation dans la sidebar
+        eval_icon = "🏥" if st.session_state.evaluation_type == "etablissement" else "👨‍⚕️"
+        eval_name = "Établissement" if st.session_state.evaluation_type == "etablissement" else "Médecin"
+        st.sidebar.markdown(f"**Type d'évaluation :** {eval_icon} {eval_name}")
+        
+        # Bouton de reset
+        if st.sidebar.button("🔄 Recommencer"):
+            for key in list(st.session_state.keys()):
+                del st.session_state[key]
+            st.experimental_rerun()
     
     st.sidebar.markdown("---")
     
@@ -571,7 +587,7 @@ def step_3_note_ia():
                 rating_result = calculate_rating_from_text(
                     st.session_state.avis_text, 
                     st.session_state.sentiment_analysis,
-                    questionnaire_context=st.session_state.note_questions_fermees
+                    st.session_state.note_questions_fermees  # Paramètre positionnel
                 )
                 st.session_state.rating_calculation = rating_result
             except Exception as e:
@@ -738,9 +754,9 @@ def step_4_analyse_hybride():
             if st.session_state.get('note_etablissement'):
                 etab_note = st.session_state.note_etablissement
                 st.markdown(f"**🏥 Établissement : {etab_note:.1f}/5**")
-                
+        
                 # Sous-scores établissement
-                scores_etab = {
+                scores = {
                     "Médecins": st.session_state.get('etab_medecins', 3),
                     "Personnel": st.session_state.get('etab_personnel', 3),
                     "Accueil": st.session_state.get('etab_accueil', 3),
@@ -748,7 +764,7 @@ def step_4_analyse_hybride():
                     "Confort": st.session_state.get('etab_confort', 3)
                 }
                 
-                for aspect, score in scores_etab.items():
+                for aspect, score in scores.items():
                     progress = score / 5
                     st.progress(progress, text=f"{aspect}: {score}/5")
         
@@ -758,14 +774,14 @@ def step_4_analyse_hybride():
                 med_note = st.session_state.note_medecins
                 st.markdown(f"**👨‍⚕️ Médecin : {med_note:.1f}/5**")
                 
-                evaluations_med = {
+                evaluations = {
                     "Explications": st.session_state.get('medecin_explications', 'Correctes'),
                     "Confiance": st.session_state.get('medecin_confiance', 'Confiance modérée'),
                     "Motivation": st.session_state.get('medecin_motivation', 'Moyennement motivé'),
                     "Respect": st.session_state.get('medecin_respect', 'Modérément respectueux')
                 }
                 
-                for aspect, evaluation in evaluations_med.items():
+                for aspect, evaluation in evaluations.items():
                     score = convert_text_to_rating(evaluation)
                     progress = score / 5
                     st.progress(progress, text=f"{aspect}: {evaluation} ({score:.1f}/5)")
