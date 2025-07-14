@@ -33,7 +33,7 @@ class Settings:
         self.cache_duration: int = int(os.getenv("CACHE_DURATION", "3600"))
         
         # Performance et KPIs
-        self.max_response_time: float = float(os.getenv("MAX_RESPONSE_TIME", "3.0"))
+        self.max_response_time: float = float(os.getenv("MAX_RESPONSE_TIME", "30.0"))  # Augmenté à 30s pour Mistral
         self.required_precision: float = float(os.getenv("REQUIRED_PRECISION", "0.85"))
         self.required_coherence: float = float(os.getenv("REQUIRED_COHERENCE", "0.90"))
         

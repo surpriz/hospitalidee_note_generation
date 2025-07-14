@@ -73,8 +73,12 @@ def init_streamlit_config():
 
 def init_session_state():
     """Initialise les variables de session selon les Cursor rules"""
+    # Sélection du type d'évaluation
+    if 'evaluation_type' not in st.session_state:
+        st.session_state.evaluation_type = None
+    
     if 'current_step' not in st.session_state:
-        st.session_state.current_step = 1
+        st.session_state.current_step = 0  # Commencer à 0 pour la sélection
     
     if 'avis_text' not in st.session_state:
         st.session_state.avis_text = ""
@@ -91,14 +95,15 @@ def init_session_state():
     if 'analysis_complete' not in st.session_state:
         st.session_state.analysis_complete = False
     
-    # Variables pour les questions fermées
-    
+    # Variables pour les questions fermées - établissement
     if 'note_etablissement' not in st.session_state:
         st.session_state.note_etablissement = None
     
+    # Variables pour les questions fermées - médecins
     if 'note_medecins' not in st.session_state:
         st.session_state.note_medecins = None
     
+    # Note du questionnaire (selon le type d'évaluation)
     if 'note_questions_fermees' not in st.session_state:
         st.session_state.note_questions_fermees = None
     
@@ -114,19 +119,29 @@ def render_sidebar():
     st.sidebar.markdown("## 🏥 Hospitalidée")
     st.sidebar.markdown("### Génération Automatique de Notes")
     
+    # Affichage du type d'évaluation sélectionné
+    if st.session_state.evaluation_type:
+        eval_icon = "🏥" if st.session_state.evaluation_type == "etablissement" else "👨‍⚕️"
+        eval_name = "Établissement" if st.session_state.evaluation_type == "etablissement" else "Médecin"
+        st.sidebar.markdown(f"**{eval_icon} Évaluation : {eval_name}**")
+    
     st.sidebar.markdown("---")
     
-    # Indicateur de progression - nouveau workflow
+    # Indicateur de progression - nouveau workflow séparé
     steps = ["Questionnaire", "Saisie", "Note IA", "Analyse hybride", "Résultat"]
-    current = st.session_state.current_step
     
-    for i, step in enumerate(steps, 1):
-        if i < current:
-            st.sidebar.markdown(f"✅ **{i}. {step}**")
-        elif i == current:
-            st.sidebar.markdown(f"🔄 **{i}. {step}**")
-        else:
-            st.sidebar.markdown(f"⏸️ {i}. {step}")
+    if st.session_state.evaluation_type:
+        current = st.session_state.current_step
+        
+        for i, step in enumerate(steps, 1):
+            if i < current:
+                st.sidebar.markdown(f"✅ **{i}. {step}**")
+            elif i == current:
+                st.sidebar.markdown(f"🔄 **{i}. {step}**")
+            else:
+                st.sidebar.markdown(f"⏸️ {i}. {step}")
+    else:
+        st.sidebar.markdown("🎯 **Sélection du type d'évaluation**")
     
     st.sidebar.markdown("---")
     
@@ -149,95 +164,197 @@ def render_sidebar():
         )
 
 
-def step_1_questionnaire():
-    """Écran 1: Questionnaire avec questions fermées selon nouveau workflow"""
-    st.header("📋 Étape 1 : Questionnaire d'évaluation")
+def step_0_selection_type():
+    """Écran 0: Sélection du type d'évaluation (Établissement ou Médecin)"""
+    st.header("🎯 Sélection du type d'évaluation")
     
     st.markdown("""
-    **Évaluez votre expérience** en répondant aux questions suivantes. 
+    **Bienvenue dans l'outil d'évaluation Hospitalidée !**
+    
+    Pour commencer votre évaluation, veuillez sélectionner le type d'évaluation que vous souhaitez effectuer.
+    Chaque type propose un questionnaire et une analyse spécialisée.
+    """)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        if st.button(
+            "🏥 Évaluer un Établissement",
+            help="Évaluez votre expérience dans un établissement de santé (hôpital, clinique...)",
+            use_container_width=True,
+            type="secondary"
+        ):
+            st.session_state.evaluation_type = "etablissement"
+            st.session_state.current_step = 1
+            st.rerun()
+        
+        st.markdown("""
+        **Évaluation Établissement :**
+        - Relation avec les médecins
+        - Relation avec le personnel
+        - Accueil et prise en charge
+        - Confort (chambres, repas)
+        - Analyse globale de l'établissement
+        """)
+    
+    with col2:
+        if st.button(
+            "👨‍⚕️ Évaluer un Médecin",
+            help="Évaluez spécifiquement votre relation avec un médecin",
+            use_container_width=True,
+            type="secondary"
+        ):
+            st.session_state.evaluation_type = "medecin"
+            st.session_state.current_step = 1
+            st.rerun()
+        
+        st.markdown("""
+        **Évaluation Médecin :**
+        - Qualité des explications
+        - Sentiment de confiance
+        - Motivation prescription
+        - Respect de votre identité
+        - Analyse centrée sur la relation médecin-patient
+        """)
+    
+    st.markdown("---")
+    st.info("💡 **Astuce :** Vous pourrez toujours revenir à cette sélection en utilisant le bouton 'Nouvelle analyse' à la fin du processus.")
+
+
+def step_1_questionnaire():
+    """Écran 1: Questionnaire avec questions fermées selon nouveau workflow séparé"""
+    if not st.session_state.evaluation_type:
+        st.error("Type d'évaluation non sélectionné. Retournez à la sélection.")
+        return
+    
+    # Titre selon le type d'évaluation
+    eval_icon = "🏥" if st.session_state.evaluation_type == "etablissement" else "👨‍⚕️"
+    eval_name = "Établissement" if st.session_state.evaluation_type == "etablissement" else "Médecin"
+    
+    st.header(f"📋 Étape 1 : Questionnaire d'évaluation {eval_icon}")
+    
+    st.markdown(f"""
+    **Évaluez votre expérience {eval_name.lower()}** en répondant aux questions suivantes. 
     Cette évaluation nous permettra de mieux comprendre votre ressenti lors de l'analyse de votre avis textuel.
     """)
     
-    col1, col2 = st.columns([1, 1])
-    
-    with col1:
-        st.markdown("#### 🏥 **Établissement**")
-        st.markdown("*Évaluez la qualité de l'établissement en donnant une note sur 5 pour chaque aspect :*")
+    if st.session_state.evaluation_type == "etablissement":
+        # Workflow Établissement uniquement
+        st.markdown("### 🏥 **Évaluation de l'Établissement**")
+        st.markdown("*Donnez une note sur 5 pour chaque aspect de votre expérience dans l'établissement :*")
         
-        # Questions établissement avec stockage en session
-        etab_medecins = st.slider(
-            "Votre relation avec les médecins",
-            min_value=1, max_value=5, value=3,
-            help="Qualité de la communication et des interactions avec les médecins",
-            key="etab_medecins"
-        )
+        col1, col2 = st.columns(2)
         
-        etab_personnel = st.slider(
-            "Votre relation avec le personnel",
-            min_value=1, max_value=5, value=3,
-            help="Qualité des interactions avec les infirmières, aides-soignants, etc.",
-            key="etab_personnel"
-        )
+        with col1:
+            etab_medecins = st.slider(
+                "Votre relation avec les médecins",
+                min_value=1, max_value=5, value=3,
+                help="Qualité de la communication et des interactions avec les médecins",
+                key="etab_medecins"
+            )
+            
+            etab_personnel = st.slider(
+                "Votre relation avec le personnel",
+                min_value=1, max_value=5, value=3,
+                help="Qualité des interactions avec les infirmières, aides-soignants, etc.",
+                key="etab_personnel"
+            )
+            
+            etab_accueil = st.slider(
+                "L'accueil",
+                min_value=1, max_value=5, value=3,
+                help="Qualité de l'accueil à votre arrivée dans l'établissement",
+                key="etab_accueil"
+            )
         
-        etab_accueil = st.slider(
-            "L'accueil",
-            min_value=1, max_value=5, value=3,
-            help="Qualité de l'accueil à votre arrivée dans l'établissement",
-            key="etab_accueil"
-        )
-        
-        etab_prise_charge = st.slider(
-            "La prise en charge jusqu'à la sortie",
-            min_value=1, max_value=5, value=3,
-            help="Qualité du suivi médical du début à la fin de votre séjour",
-            key="etab_prise_charge"
-        )
-        
-        etab_confort = st.slider(
-            "Les chambres et les repas",
-            min_value=1, max_value=5, value=3,
-            help="Qualité de l'hébergement et de la restauration",
-            key="etab_confort"
-        )
+        with col2:
+            etab_prise_charge = st.slider(
+                "La prise en charge jusqu'à la sortie",
+                min_value=1, max_value=5, value=3,
+                help="Qualité du suivi médical du début à la fin de votre séjour",
+                key="etab_prise_charge"
+            )
+            
+            etab_confort = st.slider(
+                "Les chambres et les repas",
+                min_value=1, max_value=5, value=3,
+                help="Qualité de l'hébergement et de la restauration",
+                key="etab_confort"
+            )
         
         # Calcul note établissement
         note_etablissement = (etab_medecins + etab_personnel + etab_accueil + etab_prise_charge + etab_confort) / 5
         st.session_state.note_etablissement = note_etablissement
+        st.session_state.note_questions_fermees = note_etablissement  # Pour ce workflow, c'est la note finale
         
-        st.markdown(f"**Note Établissement : {note_etablissement:.1f}/5** ⭐")
+        # Résumé établissement
+        st.markdown("---")
+        st.markdown("### 🎯 Résumé de votre évaluation")
+        
+        col_summary1, col_summary2 = st.columns(2)
+        with col_summary1:
+            st.markdown(f"""
+            <div style='text-align: center; padding: 20px; background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); color: white; border-radius: 10px; margin: 10px 0;'>
+                <h2 style='color: white; margin: 0;'>Note Établissement</h2>
+                <h1 style='color: #FFD700; margin: 5px 0; font-size: 2.5em;'>{note_etablissement:.1f}/5</h1>
+                <p style='margin: 0; color: #E0E0E0;'>⭐ Moyenne des 5 aspects évalués</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col_summary2:
+            st.markdown("#### 📊 Détail par aspect")
+            aspects = {
+                "Médecins": etab_medecins,
+                "Personnel": etab_personnel, 
+                "Accueil": etab_accueil,
+                "Prise en charge": etab_prise_charge,
+                "Confort": etab_confort
+            }
+            
+            for aspect, score in aspects.items():
+                stars = "⭐" * score + "☆" * (5 - score)
+                st.markdown(f"**{aspect}**: {score}/5 {stars}")
     
-    with col2:
-        st.markdown("#### 👨‍⚕️ **Médecins**")
-        st.markdown("*Comment évaluez-vous la relation avec votre médecin ?*")
+    elif st.session_state.evaluation_type == "medecin":
+        # Workflow Médecin uniquement
+        st.markdown("### 👨‍⚕️ **Évaluation du Médecin**")
+        st.markdown("*Évaluez votre relation avec le médecin sur les aspects suivants :*")
         
-        # Questions médecins avec choix multiples (on peut convertir en notes)
-        medecin_explications = st.select_slider(
-            "Qualité des explications",
-            options=["Très insuffisantes", "Insuffisantes", "Correctes", "Bonnes", "Excellentes"],
-            value="Correctes",
-            key="medecin_explications"
-        )
+        col1, col2 = st.columns(2)
         
-        medecin_confiance = st.select_slider(
-            "Sentiment de confiance",
-            options=["Aucune confiance", "Peu de confiance", "Confiance modérée", "Bonne confiance", "Confiance totale"],
-            value="Confiance modérée",
-            key="medecin_confiance"
-        )
+        with col1:
+            medecin_explications = st.select_slider(
+                "Qualité des explications",
+                options=["Très insuffisantes", "Insuffisantes", "Correctes", "Bonnes", "Excellentes"],
+                value="Correctes",
+                key="medecin_explications",
+                help="Clarté et qualité des explications données par le médecin"
+            )
+            
+            medecin_confiance = st.select_slider(
+                "Sentiment de confiance",
+                options=["Aucune confiance", "Peu de confiance", "Confiance modérée", "Bonne confiance", "Confiance totale"],
+                value="Confiance modérée",
+                key="medecin_confiance",
+                help="Niveau de confiance que vous ressentez envers ce médecin"
+            )
         
-        medecin_motivation = st.select_slider(
-            "Motivation à respecter la prescription",
-            options=["Aucune motivation", "Peu motivé", "Moyennement motivé", "Bien motivé", "Très motivé"],
-            value="Moyennement motivé",
-            key="medecin_motivation"
-        )
-        
-        medecin_respect = st.select_slider(
-            "Respect de votre identité, préférences et besoins",
-            options=["Pas du tout", "Peu respectueux", "Modérément respectueux", "Respectueux", "Très respectueux"],
-            value="Modérément respectueux",
-            key="medecin_respect"
-        )
+        with col2:
+            medecin_motivation = st.select_slider(
+                "Motivation à respecter la prescription",
+                options=["Aucune motivation", "Peu motivé", "Moyennement motivé", "Bien motivé", "Très motivé"],
+                value="Moyennement motivé",
+                key="medecin_motivation",
+                help="Votre motivation à suivre les conseils et prescriptions du médecin"
+            )
+            
+            medecin_respect = st.select_slider(
+                "Respect de votre identité, préférences et besoins",
+                options=["Pas du tout", "Peu respectueux", "Modérément respectueux", "Respectueux", "Très respectueux"],
+                value="Modérément respectueux",
+                key="medecin_respect",
+                help="Respect de vos besoins personnels et de votre individualité"
+            )
         
         # Calcul note médecins (conversion des choix en notes)
         medecin_scores = {
@@ -249,60 +366,96 @@ def step_1_questionnaire():
         
         note_medecins = sum(medecin_scores.values()) / len(medecin_scores)
         st.session_state.note_medecins = note_medecins
+        st.session_state.note_questions_fermees = note_medecins  # Pour ce workflow, c'est la note finale
         
-        st.markdown(f"**Note Médecins : {note_medecins:.1f}/5** ⭐")
+        # Résumé médecins
+        st.markdown("---")
+        st.markdown("### 🎯 Résumé de votre évaluation")
         
-        # Note composite des questions fermées
-        note_questions_fermees = (note_etablissement + note_medecins) / 2
-        st.session_state.note_questions_fermees = note_questions_fermees
-    
-    # Résumé du questionnaire
-    st.markdown("---")
-    st.markdown("### 🎯 Résumé de votre évaluation")
-    
-    col_summary1, col_summary2, col_summary3 = st.columns(3)
-    with col_summary1:
-        st.metric("Note Établissement", f"{note_etablissement:.1f}/5", help="Moyenne des 5 aspects évalués")
-    with col_summary2:
-        st.metric("Note Médecins", f"{note_medecins:.1f}/5", help="Moyenne des 4 critères évalués")
-    with col_summary3:
-        st.metric("Note Questionnaire", f"{note_questions_fermees:.1f}/5", help="Note composite du questionnaire")
+        col_summary1, col_summary2 = st.columns(2)
+        with col_summary1:
+            st.markdown(f"""
+            <div style='text-align: center; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 10px; margin: 10px 0;'>
+                <h2 style='color: white; margin: 0;'>Note Médecin</h2>
+                <h1 style='color: #FFD700; margin: 5px 0; font-size: 2.5em;'>{note_medecins:.1f}/5</h1>
+                <p style='margin: 0; color: #E0E0E0;'>⭐ Moyenne des 4 critères évalués</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col_summary2:
+            st.markdown("#### 📊 Détail par critère")
+            
+            for aspect, evaluation in [
+                ("Explications", medecin_explications),
+                ("Confiance", medecin_confiance), 
+                ("Motivation", medecin_motivation),
+                ("Respect", medecin_respect)
+            ]:
+                score = convert_text_to_rating(evaluation)
+                stars = "⭐" * int(score) + "☆" * (5 - int(score))
+                st.markdown(f"**{aspect}**: {evaluation} ({score:.1f}/5) {stars}")
     
     # Navigation
     st.markdown("---")
     col1, col2, col3 = st.columns([1, 2, 1])
     
-    with col2:
+    with col1:
+        if st.button("← Changer de type", use_container_width=True):
+            st.session_state.current_step = 0
+            st.rerun()
+    
+    with col3:
         if st.button("Continuer vers la saisie d'avis 📝", type="primary", use_container_width=True):
             st.session_state.current_step = 2
             st.rerun()
 
 
 def step_2_saisie_avis():
-    """Écran 2: Saisie d'avis avec analyse en temps réel selon nouveau workflow"""
-    st.header("📝 Étape 2 : Saisie de votre avis")
+    """Écran 2: Saisie d'avis avec analyse en temps réel selon nouveau workflow séparé"""
+    if not st.session_state.evaluation_type:
+        st.error("Type d'évaluation non sélectionné. Retournez à la sélection.")
+        return
     
-    # Affichage du résumé questionnaire
+    # Titre selon le type d'évaluation
+    eval_icon = "🏥" if st.session_state.evaluation_type == "etablissement" else "👨‍⚕️"
+    eval_name = "Établissement" if st.session_state.evaluation_type == "etablissement" else "Médecin"
+    
+    st.header(f"📝 Étape 2 : Saisie de votre avis {eval_icon}")
+    
+    # Affichage du résumé questionnaire selon le type
     if st.session_state.get('note_questions_fermees'):
-        st.info(f"✅ Questionnaire complété - Note: {st.session_state.note_questions_fermees:.1f}/5")
+        st.info(f"✅ Questionnaire {eval_name} complété - Note: {st.session_state.note_questions_fermees:.1f}/5")
     else:
-        st.warning("⚠️ Questionnaire non complété. Retournez à l'étape 1.")
+        st.warning(f"⚠️ Questionnaire {eval_name} non complété. Retournez à l'étape 1.")
     
     col1, col2 = st.columns([2, 1])
     
     with col1:
-        st.markdown("""
-        **Partagez votre expérience** dans l'établissement de santé. 
-        Plus votre avis sera détaillé, plus notre analyse sera précise et cohérente avec votre évaluation.
-        """)
+        # Message personnalisé selon le type d'évaluation
+        if st.session_state.evaluation_type == "etablissement":
+            st.markdown("""
+            **Partagez votre expérience** dans l'établissement de santé. 
+            Plus votre avis sera détaillé, plus notre analyse sera précise et cohérente avec votre évaluation.
+            """)
+            
+            placeholder_text = "Décrivez votre expérience dans l'établissement : accueil, soins reçus, personnel, confort, locaux..."
+            help_text = "Partagez tous les aspects de votre séjour dans l'établissement qui vous semblent importants"
+        else:
+            st.markdown("""
+            **Partagez votre expérience** avec le médecin. 
+            Plus votre avis sera détaillé, plus notre analyse sera précise et cohérente avec votre évaluation.
+            """)
+            
+            placeholder_text = "Décrivez votre relation avec le médecin : communication, écoute, explications, traitement..."
+            help_text = "Partagez tous les aspects de votre relation avec le médecin qui vous semblent importants"
         
         # Zone de texte principale avec callback selon Cursor rules
         avis_text = st.text_area(
             label="Votre avis complet",
             value=st.session_state.avis_text,
             height=200,
-            placeholder="Décrivez votre expérience : accueil, soins reçus, personnel, confort...",
-            help="Partagez tous les aspects de votre séjour qui vous semblent importants"
+            placeholder=placeholder_text,
+            help=help_text
         )
         
         # Mise à jour en temps réel
@@ -357,7 +510,17 @@ def step_2_saisie_avis():
                         st.metric("Avec questionnaire", f"{coherence:.0%}")
                     
                 except Exception as e:
-                    st.error(f"Erreur d'analyse : {str(e)}")
+                    error_msg = str(e)
+                    if "Timeout" in error_msg:
+                        st.error("⏱️ L'API Mistral prend plus de temps que prévu. Veuillez réessayer dans quelques instants.")
+                        st.info("💡 **Conseil :** L'API peut être temporairement surchargée. Le système fonctionne en mode dégradé.")
+                    elif "rate limit" in error_msg.lower():
+                        st.error("🚦 Limite de requêtes atteinte. Veuillez attendre quelques minutes avant de réessayer.")
+                    elif "clé API" in error_msg.lower() or "401" in error_msg:
+                        st.error("🔑 Problème de configuration API. Contactez l'administrateur.")
+                    else:
+                        st.error(f"❌ Erreur d'analyse : {error_msg}")
+                        st.info("🔄 Le système continue de fonctionner avec des analyses simplifiées.")
         
         else:
             st.info("Commencez à écrire votre avis pour voir l'analyse en temps réel")
@@ -381,15 +544,23 @@ def step_2_saisie_avis():
 
 
 def step_3_note_ia():
-    """Écran 3: Note suggérée par l'IA en tenant compte du questionnaire selon nouveau workflow"""
-    st.header("⭐ Étape 3 : Note suggérée par l'IA")
+    """Écran 3: Note suggérée par l'IA en tenant compte du questionnaire selon nouveau workflow séparé"""
+    if not st.session_state.evaluation_type:
+        st.error("Type d'évaluation non sélectionné. Retournez à la sélection.")
+        return
+    
+    # Titre selon le type d'évaluation
+    eval_icon = "🏥" if st.session_state.evaluation_type == "etablissement" else "👨‍⚕️"
+    eval_name = "Établissement" if st.session_state.evaluation_type == "etablissement" else "Médecin"
+    
+    st.header(f"⭐ Étape 3 : Note suggérée par l'IA {eval_icon}")
     
     if not st.session_state.sentiment_analysis:
         st.error("Analyse de sentiment manquante. Retournez à l'étape 2.")
         return
     
     if not st.session_state.get('note_questions_fermees'):
-        st.error("Questionnaire non complété. Retournez à l'étape 1.")
+        st.error(f"Questionnaire {eval_name} non complété. Retournez à l'étape 1.")
         return
     
     # Calcul de la note IA hybride si pas déjà fait
@@ -404,7 +575,28 @@ def step_3_note_ia():
                 )
                 st.session_state.rating_calculation = rating_result
             except Exception as e:
-                st.error(f"Erreur lors du calcul : {str(e)}")
+                error_msg = str(e)
+                if "Timeout" in error_msg:
+                    st.error("⏱️ L'IA prend plus de temps que prévu pour calculer la note.")
+                    st.info("💡 **Le système continue avec une note basée sur l'analyse de sentiment local.**")
+                    # Calcul de fallback en mode dégradé
+                    sentiment = st.session_state.sentiment_analysis.get('sentiment', 'neutre')
+                    fallback_ratings = {'positif': 4.0, 'neutre': 3.0, 'negatif': 2.0}
+                    fallback_rating = fallback_ratings.get(sentiment, 3.0)
+                    
+                    st.session_state.rating_calculation = {
+                        'suggested_rating': fallback_rating,
+                        'confidence': 0.5,
+                        'justification': f"Note basée sur le sentiment {sentiment} (mode dégradé)",
+                        'factors': {'sentiment_weight': 1.0},
+                        'fallback_mode': True
+                    }
+                elif "rate limit" in error_msg.lower():
+                    st.error("🚦 L'API est temporairement surchargée. Veuillez réessayer dans quelques minutes.")
+                    return
+                else:
+                    st.error(f"❌ Erreur lors du calcul : {error_msg}")
+                    st.info("🔄 Utilisez le mode dégradé ou réessayez plus tard.")
                 return
     
     rating_data = st.session_state.rating_calculation
@@ -416,16 +608,18 @@ def step_3_note_ia():
     col1, col2 = st.columns([1, 1])
     
     with col1:
-        st.markdown("### 🎯 Note suggérée par l'IA hybride")
+        st.markdown(f"### 🎯 Note suggérée par l'IA hybride - {eval_name}")
         
         # Affichage visuel de la note - amélioration visibilité selon demande utilisateur
         rating_display = "⭐" * int(suggested_rating) + "☆" * (5 - int(suggested_rating))
+        gradient_color = "linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)" if st.session_state.evaluation_type == "etablissement" else "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+        
         st.markdown(f"""
-        <div style='text-align: center; padding: 30px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 15px; margin: 15px 0; box-shadow: 0 4px 15px rgba(0,0,0,0.2);'>
+        <div style='text-align: center; padding: 30px; background: {gradient_color}; color: white; border-radius: 15px; margin: 15px 0; box-shadow: 0 4px 15px rgba(0,0,0,0.2);'>
             <h1 style='color: white; margin: 0; font-size: 3em; text-shadow: 2px 2px 4px rgba(0,0,0,0.3);'>{suggested_rating}/5</h1>
             <h2 style='margin: 10px 0; color: #FFD700; text-shadow: 1px 1px 2px rgba(0,0,0,0.3);'>{rating_display}</h2>
             <p style='margin: 0; font-style: italic; color: #E0E0E0; font-size: 1.1em;'>Confiance: {confidence:.1%}</p>
-            <p style='margin: 5px 0; color: #F0F0F0; font-size: 0.9em;'>🔗 Analyse hybride (Questionnaire + Avis textuel)</p>
+            <p style='margin: 5px 0; color: #F0F0F0; font-size: 0.9em;'>🔗 Analyse hybride {eval_name} (Questionnaire + Avis textuel)</p>
         </div>
         """, unsafe_allow_html=True)
         
@@ -437,10 +631,10 @@ def step_3_note_ia():
         questionnaire_note = st.session_state.note_questions_fermees
         difference = suggested_rating - questionnaire_note
         
-        st.markdown("#### 🔗 Cohérence avec le questionnaire")
+        st.markdown(f"#### 🔗 Cohérence avec le questionnaire {eval_name}")
         col_coh1, col_coh2, col_coh3 = st.columns(3)
         with col_coh1:
-            st.metric("Note questionnaire", f"{questionnaire_note:.1f}/5")
+            st.metric(f"Note questionnaire {eval_name}", f"{questionnaire_note:.1f}/5")
         with col_coh2:
             st.metric("Note IA hybride", f"{suggested_rating:.1f}/5")
         with col_coh3:
@@ -484,8 +678,16 @@ def step_3_note_ia():
 
 
 def step_4_analyse_hybride():
-    """Écran 4: Analyse complète hybride selon nouveau workflow"""
-    st.header("🔍 Étape 4 : Analyse complète hybride")
+    """Écran 4: Analyse complète hybride selon nouveau workflow séparé"""
+    if not st.session_state.evaluation_type:
+        st.error("Type d'évaluation non sélectionné. Retournez à la sélection.")
+        return
+    
+    # Titre selon le type d'évaluation
+    eval_icon = "🏥" if st.session_state.evaluation_type == "etablissement" else "👨‍⚕️"
+    eval_name = "Établissement" if st.session_state.evaluation_type == "etablissement" else "Médecin"
+    
+    st.header(f"🔍 Étape 4 : Analyse complète hybride {eval_icon}")
     
     if not st.session_state.rating_calculation:
         st.error("Calcul de note IA manquant. Retournez à l'étape 3.")
@@ -496,7 +698,7 @@ def step_4_analyse_hybride():
         return
     
     if not st.session_state.get('note_questions_fermees'):
-        st.error("Questionnaire non complété. Retournez à l'étape 1.")
+        st.error(f"Questionnaire {eval_name} non complété. Retournez à l'étape 1.")
         return
     
     # Données pour l'analyse hybride
@@ -505,17 +707,17 @@ def step_4_analyse_hybride():
     suggested_rating = rating_data.get('suggested_rating', 3.0)
     questionnaire_note = st.session_state.note_questions_fermees
     
-    st.markdown("""
-    Cette analyse combine les résultats du **questionnaire structuré** et de l'**analyse textuelle** 
+    st.markdown(f"""
+    Cette analyse combine les résultats du **questionnaire {eval_name.lower()} structuré** et de l'**analyse textuelle** 
     pour offrir une vue complète de votre expérience.
     """)
     
     # Vue d'ensemble hybride
-    st.markdown("### 📊 Vue d'ensemble hybride")
+    st.markdown(f"### 📊 Vue d'ensemble hybride - {eval_name}")
     
     col_overview1, col_overview2, col_overview3, col_overview4 = st.columns(4)
     with col_overview1:
-        st.metric("Note Questionnaire", f"{questionnaire_note:.1f}/5", help="Basée sur vos réponses structurées")
+        st.metric(f"Note Questionnaire {eval_name}", f"{questionnaire_note:.1f}/5", help="Basée sur vos réponses structurées")
     with col_overview2:
         sentiment = sentiment_data.get('sentiment', 'neutre')
         st.metric("Sentiment Textuel", sentiment.title(), help="Détecté dans votre avis")
@@ -529,42 +731,44 @@ def step_4_analyse_hybride():
     col1, col2 = st.columns(2)
     
     with col1:
-        st.markdown("### 📋 Analyse du questionnaire")
+        st.markdown(f"### 📋 Analyse du questionnaire {eval_name}")
         
-        # Détail établissement
-        if st.session_state.get('note_etablissement'):
-            etab_note = st.session_state.note_etablissement
-            st.markdown(f"**🏥 Établissement : {etab_note:.1f}/5**")
-            
-            # Sous-scores établissement
-            scores_etab = {
-                "Médecins": st.session_state.get('etab_medecins', 3),
-                "Personnel": st.session_state.get('etab_personnel', 3),
-                "Accueil": st.session_state.get('etab_accueil', 3),
-                "Prise en charge": st.session_state.get('etab_prise_charge', 3),
-                "Confort": st.session_state.get('etab_confort', 3)
-            }
-            
-            for aspect, score in scores_etab.items():
-                progress = score / 5
-                st.progress(progress, text=f"{aspect}: {score}/5")
+        if st.session_state.evaluation_type == "etablissement":
+            # Détail établissement uniquement
+            if st.session_state.get('note_etablissement'):
+                etab_note = st.session_state.note_etablissement
+                st.markdown(f"**🏥 Établissement : {etab_note:.1f}/5**")
+                
+                # Sous-scores établissement
+                scores_etab = {
+                    "Médecins": st.session_state.get('etab_medecins', 3),
+                    "Personnel": st.session_state.get('etab_personnel', 3),
+                    "Accueil": st.session_state.get('etab_accueil', 3),
+                    "Prise en charge": st.session_state.get('etab_prise_charge', 3),
+                    "Confort": st.session_state.get('etab_confort', 3)
+                }
+                
+                for aspect, score in scores_etab.items():
+                    progress = score / 5
+                    st.progress(progress, text=f"{aspect}: {score}/5")
         
-        # Détail médecins
-        if st.session_state.get('note_medecins'):
-            med_note = st.session_state.note_medecins
-            st.markdown(f"**👨‍⚕️ Médecins : {med_note:.1f}/5**")
-            
-            evaluations_med = {
-                "Explications": st.session_state.get('medecin_explications', 'Correctes'),
-                "Confiance": st.session_state.get('medecin_confiance', 'Confiance modérée'),
-                "Motivation": st.session_state.get('medecin_motivation', 'Moyennement motivé'),
-                "Respect": st.session_state.get('medecin_respect', 'Modérément respectueux')
-            }
-            
-            for aspect, evaluation in evaluations_med.items():
-                score = convert_text_to_rating(evaluation)
-                progress = score / 5
-                st.progress(progress, text=f"{aspect}: {evaluation} ({score:.1f}/5)")
+        elif st.session_state.evaluation_type == "medecin":
+            # Détail médecins uniquement
+            if st.session_state.get('note_medecins'):
+                med_note = st.session_state.note_medecins
+                st.markdown(f"**👨‍⚕️ Médecin : {med_note:.1f}/5**")
+                
+                evaluations_med = {
+                    "Explications": st.session_state.get('medecin_explications', 'Correctes'),
+                    "Confiance": st.session_state.get('medecin_confiance', 'Confiance modérée'),
+                    "Motivation": st.session_state.get('medecin_motivation', 'Moyennement motivé'),
+                    "Respect": st.session_state.get('medecin_respect', 'Modérément respectueux')
+                }
+                
+                for aspect, evaluation in evaluations_med.items():
+                    score = convert_text_to_rating(evaluation)
+                    progress = score / 5
+                    st.progress(progress, text=f"{aspect}: {evaluation} ({score:.1f}/5)")
     
     with col2:
         st.markdown("### 📝 Analyse textuelle")
@@ -681,15 +885,23 @@ def convert_text_to_rating(text_choice: str) -> float:
 
 
 def step_5_resultat_final():
-    """Écran 5: Résultat final avec export selon les Cursor rules"""
-    st.header("🎉 Étape 5 : Avis finalisé")
+    """Écran 5: Résultat final avec export selon les Cursor rules - workflow séparé"""
+    if not st.session_state.evaluation_type:
+        st.error("Type d'évaluation non sélectionné. Retournez à la sélection.")
+        return
+    
+    # Titre selon le type d'évaluation
+    eval_icon = "🏥" if st.session_state.evaluation_type == "etablissement" else "👨‍⚕️"
+    eval_name = "Établissement" if st.session_state.evaluation_type == "etablissement" else "Médecin"
+    
+    st.header(f"🎉 Étape 5 : Avis {eval_name} finalisé {eval_icon}")
     
     if not st.session_state.analysis_complete:
         st.error("Processus non terminé")
         return
     
     # Résultat final selon Cursor rules
-    st.success("🎊 Félicitations ! Votre avis a été analysé et finalisé avec succès.")
+    st.success(f"🎊 Félicitations ! Votre avis {eval_name.lower()} a été analysé et finalisé avec succès.")
     
     col1, col2 = st.columns([2, 1])
     
@@ -732,37 +944,43 @@ def step_5_resultat_final():
             
             with st.expander("🏥 Évaluation Établissement"):
                 etab_note = st.session_state.note_etablissement
-                st.markdown(f"**Note globale établissement : {etab_note:.1f}/5**")
-                
-                # Récupérer les notes individuelles depuis la session
-                scores = {
-                    "Relation médecins": st.session_state.get('etab_medecins', 3),
-                    "Relation personnel": st.session_state.get('etab_personnel', 3),
-                    "Accueil": st.session_state.get('etab_accueil', 3),
-                    "Prise en charge": st.session_state.get('etab_prise_charge', 3),
-                    "Chambres et repas": st.session_state.get('etab_confort', 3)
-                }
-                
-                for aspect, score in scores.items():
-                    stars = "⭐" * score + "☆" * (5 - score)
-                    st.markdown(f"• **{aspect}**: {score}/5 {stars}")
+                if etab_note is not None:
+                    st.markdown(f"**Note globale établissement : {etab_note:.1f}/5**")
+                    
+                    # Récupérer les notes individuelles depuis la session
+                    scores = {
+                        "Relation médecins": st.session_state.get('etab_medecins', 3),
+                        "Relation personnel": st.session_state.get('etab_personnel', 3),
+                        "Accueil": st.session_state.get('etab_accueil', 3),
+                        "Prise en charge": st.session_state.get('etab_prise_charge', 3),
+                        "Chambres et repas": st.session_state.get('etab_confort', 3)
+                    }
+                    
+                    for aspect, score in scores.items():
+                        stars = "⭐" * score + "☆" * (5 - score)
+                        st.markdown(f"• **{aspect}**: {score}/5 {stars}")
+                else:
+                    st.info("Aucune évaluation établissement détaillée disponible.")
             
             with st.expander("👨‍⚕️ Évaluation Médecins"):
                 med_note = st.session_state.note_medecins
-                st.markdown(f"**Note globale médecins : {med_note:.1f}/5**")
-                
-                # Récupérer les évaluations textuelles depuis la session
-                evaluations = {
-                    "Qualité des explications": st.session_state.get('medecin_explications', 'Correctes'),
-                    "Sentiment de confiance": st.session_state.get('medecin_confiance', 'Confiance modérée'),
-                    "Motivation prescription": st.session_state.get('medecin_motivation', 'Moyennement motivé'),
-                    "Respect identité/besoins": st.session_state.get('medecin_respect', 'Modérément respectueux')
-                }
-                
-                for aspect, evaluation in evaluations.items():
-                    score = convert_text_to_rating(evaluation)
-                    stars = "⭐" * int(score) + "☆" * (5 - int(score))
-                    st.markdown(f"• **{aspect}**: {evaluation} ({score:.1f}/5) {stars}")
+                if med_note is not None:
+                    st.markdown(f"**Note globale médecins : {med_note:.1f}/5**")
+                    
+                    # Récupérer les évaluations textuelles depuis la session
+                    evaluations = {
+                        "Qualité des explications": st.session_state.get('medecin_explications', 'Correctes'),
+                        "Sentiment de confiance": st.session_state.get('medecin_confiance', 'Confiance modérée'),
+                        "Motivation prescription": st.session_state.get('medecin_motivation', 'Moyennement motivé'),
+                        "Respect identité/besoins": st.session_state.get('medecin_respect', 'Modérément respectueux')
+                    }
+                    
+                    for aspect, evaluation in evaluations.items():
+                        score = convert_text_to_rating(evaluation)
+                        stars = "⭐" * int(score) + "☆" * (5 - int(score))
+                        st.markdown(f"• **{aspect}**: {evaluation} ({score:.1f}/5) {stars}")
+                else:
+                    st.info("Aucune évaluation médecine détaillée disponible.")
         
         # Génération titre suggéré selon Cursor rules
         if st.button("Générer un titre suggéré 📝"):
@@ -867,9 +1085,9 @@ def step_5_resultat_final():
     
     with col1:
         if st.button("🔄 Nouvelle analyse", use_container_width=True):
-            # Reset complet
+            # Reset complet - retour à la sélection du type
             for key in list(st.session_state.keys()):
-                if key.startswith(('avis_', 'sentiment_', 'rating_', 'final_', 'analysis_', 'current_')):
+                if key.startswith(('avis_', 'sentiment_', 'rating_', 'final_', 'analysis_', 'current_', 'note_', 'etab_', 'medecin_', 'evaluation_')):
                     del st.session_state[key]
             init_session_state()
             st.rerun()
@@ -962,15 +1180,17 @@ def create_rating_breakdown_chart(rating_data: Dict[str, Any]):
 
 
 def main():
-    """Fonction principale de l'application selon les Cursor rules"""
+    """Fonction principale de l'application selon les Cursor rules - workflow séparé"""
     init_streamlit_config()
     init_session_state()
     render_sidebar()
     
-    # Routage par étapes selon nouveau workflow
+    # Routage par étapes selon nouveau workflow séparé
     current_step = st.session_state.current_step
     
-    if current_step == 1:
+    if current_step == 0:
+        step_0_selection_type()
+    elif current_step == 1:
         step_1_questionnaire()
     elif current_step == 2:
         step_2_saisie_avis()
@@ -982,7 +1202,7 @@ def main():
         step_5_resultat_final()
     else:
         st.error("Étape inconnue")
-        st.session_state.current_step = 1
+        st.session_state.current_step = 0
         st.rerun()
 
 

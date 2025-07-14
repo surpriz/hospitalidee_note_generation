@@ -45,12 +45,14 @@ class MistralClient:
             "frequency_penalty": settings.mistral_frequency_penalty
         }
         
-        # Configuration session avec retry
+        # Configuration session avec retry améliorée
         self.session = requests.Session()
         retry_strategy = Retry(
             total=3,
-            backoff_factor=1,
-            status_forcelist=[429, 500, 502, 503, 504],
+            backoff_factor=2,  # Augmenté pour plus d'attente entre les retries
+            status_forcelist=[429, 500, 502, 503, 504, 520, 521, 522, 523, 524],
+            read=3,  # Retry sur les erreurs de lecture
+            connect=3,  # Retry sur les erreurs de connexion
         )
         adapter = HTTPAdapter(max_retries=retry_strategy)
         self.session.mount("http://", adapter)
@@ -101,11 +103,12 @@ class MistralClient:
         }
         
         try:
-            # Appel API avec timeout selon Cursor rules
+            # Appel API avec timeout selon Cursor rules - timeout étendu
+            timeout = (10, settings.max_response_time)  # (connect_timeout, read_timeout)
             response = self.session.post(
                 self.base_url,
                 json=payload,
-                timeout=settings.max_response_time
+                timeout=timeout
             )
             response.raise_for_status()
             
@@ -128,14 +131,27 @@ class MistralClient:
             else:
                 raise Exception("Aucune réponse dans le résultat Mistral")
                 
-        except requests.exceptions.Timeout:
-            self.logger.error("Timeout de l'API Mistral")
-            raise Exception("Timeout de l'API Mistral")
+        except requests.exceptions.Timeout as e:
+            self.logger.error(f"Timeout de l'API Mistral après {settings.max_response_time}s: {e}")
+            raise Exception(f"Timeout de l'API Mistral après {settings.max_response_time}s")
+        except requests.exceptions.ConnectionError as e:
+            self.logger.error(f"Erreur de connexion à l'API Mistral: {e}")
+            raise Exception(f"Erreur de connexion à l'API Mistral: {e}")
+        except requests.exceptions.HTTPError as e:
+            self.logger.error(f"Erreur HTTP de l'API Mistral: {e.response.status_code} - {e}")
+            if e.response.status_code == 429:
+                raise Exception("API Mistral surchargée (rate limit atteint)")
+            elif e.response.status_code == 401:
+                raise Exception("Clé API Mistral invalide")
+            elif e.response.status_code == 503:
+                raise Exception("Service Mistral temporairement indisponible")
+            else:
+                raise Exception(f"Erreur HTTP {e.response.status_code}: {e}")
         except requests.exceptions.RequestException as e:
-            self.logger.error(f"Erreur réseau: {e}")
+            self.logger.error(f"Erreur réseau générale: {e}")
             raise Exception(f"Erreur réseau: {e}")
         except Exception as e:
-            self.logger.error(f"Erreur inattendue: {e}")
+            self.logger.error(f"Erreur inattendue lors de l'appel Mistral: {e}")
             raise
     
     def _parse_json_response(self, content: str) -> Dict[str, Any]:
