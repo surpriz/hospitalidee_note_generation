@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🏥 Hospitalidée IA - Exemple JavaScript</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f7fa;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #34495e;
+        }
+        textarea, select, input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 6px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        textarea {
+            height: 120px;
+            resize: vertical;
+        }
+        .questionnaire {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin: 15px 0;
+        }
+        .questionnaire-medecin {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 15px;
+        }
+        button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 20px;
+        }
+        button:hover {
+            background: #2980b9;
+        }
+        button:disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 30px;
+            padding: 20px;
+            border-radius: 6px;
+            display: none;
+        }
+        .result.success {
+            background: #d5edda;
+            border: 2px solid #c3e6cb;
+        }
+        .result.error {
+            background: #f8d7da;
+            border: 2px solid #f5c6cb;
+        }
+        .note-finale {
+            font-size: 24px;
+            font-weight: bold;
+            text-align: center;
+            margin: 15px 0;
+        }
+        .details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .loading {
+            text-align: center;
+            color: #7f8c8d;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏥 Hospitalidée IA - Test API</h1>
+        
+        <form id="evaluationForm">
+            <div class="form-group">
+                <label for="typeEvaluation">Type d'évaluation</label>
+                <select id="typeEvaluation" required>
+                    <option value="">Choisissez...</option>
+                    <option value="etablissement">🏥 Établissement</option>
+                    <option value="medecin">👨‍⚕️ Médecin</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="avisText">Avis patient</label>
+                <textarea id="avisText" placeholder="Décrivez votre expérience... (minimum 20 caractères)" required></textarea>
+            </div>
+
+            <!-- Questionnaire Établissement -->
+            <div id="questionnaireEtablissement" class="hidden">
+                <h3>📊 Questionnaire Établissement</h3>
+                <div class="questionnaire">
+                    <div>
+                        <label>Médecins (1-5)</label>
+                        <input type="number" id="medecins" min="1" max="5" value="3">
+                    </div>
+                    <div>
+                        <label>Personnel (1-5)</label>
+                        <input type="number" id="personnel" min="1" max="5" value="3">
+                    </div>
+                    <div>
+                        <label>Accueil (1-5)</label>
+                        <input type="number" id="accueil" min="1" max="5" value="3">
+                    </div>
+                    <div>
+                        <label>Prise en charge (1-5)</label>
+                        <input type="number" id="priseEnCharge" min="1" max="5" value="3">
+                    </div>
+                    <div>
+                        <label>Confort (1-5)</label>
+                        <input type="number" id="confort" min="1" max="5" value="3">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Questionnaire Médecin -->
+            <div id="questionnaireMedecin" class="hidden">
+                <h3>👨‍⚕️ Questionnaire Médecin</h3>
+                <div class="questionnaire-medecin">
+                    <div>
+                        <label>Qualité des explications</label>
+                        <select id="explications">
+                            <option value="Très insuffisantes">Très insuffisantes</option>
+                            <option value="Insuffisantes">Insuffisantes</option>
+                            <option value="Correctes" selected>Correctes</option>
+                            <option value="Bonnes">Bonnes</option>
+                            <option value="Excellentes">Excellentes</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Sentiment de confiance</label>
+                        <select id="confiance">
+                            <option value="Aucune confiance">Aucune confiance</option>
+                            <option value="Peu de confiance">Peu de confiance</option>
+                            <option value="Confiance modérée" selected>Confiance modérée</option>
+                            <option value="Bonne confiance">Bonne confiance</option>
+                            <option value="Confiance totale">Confiance totale</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Motivation prescription</label>
+                        <select id="motivation">
+                            <option value="Aucune motivation">Aucune motivation</option>
+                            <option value="Peu motivé">Peu motivé</option>
+                            <option value="Moyennement motivé" selected>Moyennement motivé</option>
+                            <option value="Bien motivé">Bien motivé</option>
+                            <option value="Très motivé">Très motivé</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Respect de votre identité</label>
+                        <select id="respect">
+                            <option value="Pas du tout">Pas du tout</option>
+                            <option value="Peu respectueux">Peu respectueux</option>
+                            <option value="Modérément respectueux" selected>Modérément respectueux</option>
+                            <option value="Respectueux">Respectueux</option>
+                            <option value="Très respectueux">Très respectueux</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <button type="submit" id="submitBtn">🎯 Analyser avec l'IA</button>
+        </form>
+
+        <div id="loading" class="loading hidden">
+            <p>🤖 Analyse en cours avec Mistral AI...</p>
+            <p>Veuillez patienter (peut prendre jusqu'à 30 secondes)</p>
+        </div>
+
+        <div id="result" class="result">
+            <h2>📊 Résultat de l'analyse</h2>
+            <div class="note-finale" id="noteFinal"></div>
+            <div id="resultDetails"></div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration API - Adaptez selon votre environnement
+        const API_URL = 'http://localhost:8000';          // 💻 Tests en local
+        // const API_URL = 'http://VOTRE_IP_VPS:8000';    // 🌐 VPS production
+        // const API_URL = 'https://api.votre-site.com';  // 🔒 VPS avec domaine SSL
+
+        // Éléments DOM
+        const form = document.getElementById('evaluationForm');
+        const typeSelect = document.getElementById('typeEvaluation');
+        const questionnaireEtab = document.getElementById('questionnaireEtablissement');
+        const questionnaireMed = document.getElementById('questionnaireMedecin');
+        const submitBtn = document.getElementById('submitBtn');
+        const loadingDiv = document.getElementById('loading');
+        const resultDiv = document.getElementById('result');
+
+        // Gestion du changement de type
+        typeSelect.addEventListener('change', function() {
+            const type = this.value;
+            
+            // Masquer tous les questionnaires
+            questionnaireEtab.classList.add('hidden');
+            questionnaireMed.classList.add('hidden');
+            
+            // Afficher le bon questionnaire
+            if (type === 'etablissement') {
+                questionnaireEtab.classList.remove('hidden');
+            } else if (type === 'medecin') {
+                questionnaireMed.classList.remove('hidden');
+            }
+        });
+
+        // Gestion du formulaire
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const type = typeSelect.value;
+            const avisText = document.getElementById('avisText').value;
+            
+            if (!type || !avisText || avisText.length < 20) {
+                alert('Veuillez remplir tous les champs (avis minimum 20 caractères)');
+                return;
+            }
+
+            // Préparer les données
+            const data = {
+                type_evaluation: type,
+                avis_text: avisText,
+                generer_titre: true,
+                analyse_detaillee: true
+            };
+
+            // Ajouter le questionnaire selon le type
+            if (type === 'etablissement') {
+                data.questionnaire_etablissement = {
+                    medecins: parseInt(document.getElementById('medecins').value),
+                    personnel: parseInt(document.getElementById('personnel').value),
+                    accueil: parseInt(document.getElementById('accueil').value),
+                    prise_en_charge: parseInt(document.getElementById('priseEnCharge').value),
+                    confort: parseInt(document.getElementById('confort').value)
+                };
+            } else if (type === 'medecin') {
+                data.questionnaire_medecin = {
+                    explications: document.getElementById('explications').value,
+                    confiance: document.getElementById('confiance').value,
+                    motivation: document.getElementById('motivation').value,
+                    respect: document.getElementById('respect').value
+                };
+            }
+
+            // Afficher le loading
+            submitBtn.disabled = true;
+            loadingDiv.classList.remove('hidden');
+            resultDiv.style.display = 'none';
+
+            try {
+                console.log('Envoi vers API:', data);
+                
+                const response = await fetch(`${API_URL}/evaluate`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+                console.log('Réponse API:', result);
+
+                if (response.ok) {
+                    afficherResultat(result);
+                } else {
+                    afficherErreur(result.detail || 'Erreur inconnue');
+                }
+
+            } catch (error) {
+                console.error('Erreur:', error);
+                afficherErreur(`Erreur de connexion: ${error.message}`);
+            } finally {
+                submitBtn.disabled = false;
+                loadingDiv.classList.add('hidden');
+            }
+        });
+
+        function afficherResultat(result) {
+            resultDiv.className = 'result success';
+            resultDiv.style.display = 'block';
+
+            // Note finale
+            const noteDiv = document.getElementById('noteFinal');
+            const sentiment = result.sentiment === 'positif' ? '😊' : 
+                            result.sentiment === 'negatif' ? '😞' : '😐';
+            noteDiv.innerHTML = `${sentiment} Note finale: <span style="color: #27ae60">${result.note_finale}/5</span>`;
+
+            // Détails
+            const detailsDiv = document.getElementById('resultDetails');
+            detailsDiv.innerHTML = `
+                <div class="details">
+                    <div><strong>Sentiment:</strong> ${result.sentiment}</div>
+                    <div><strong>Confiance:</strong> ${(result.confiance * 100).toFixed(0)}%</div>
+                    <div><strong>Intensité émotionnelle:</strong> ${(result.intensite_emotionnelle * 100).toFixed(0)}%</div>
+                    <div><strong>Durée traitement:</strong> ${result.duree_traitement_ms}ms</div>
+                </div>
+                ${result.titre_suggere ? `<div style="margin-top: 15px;"><strong>Titre suggéré:</strong> "${result.titre_suggere}"</div>` : ''}
+                ${result.mode_degrade ? '<div style="margin-top: 15px; color: #e67e22;"><strong>⚠️ Mode dégradé activé</strong> (IA limitée)</div>' : ''}
+                <div style="margin-top: 15px; font-size: 12px; color: #7f8c8d;">
+                    Type: ${result.type_evaluation} | ${result.timestamp}
+                </div>
+            `;
+        }
+
+        function afficherErreur(message) {
+            resultDiv.className = 'result error';
+            resultDiv.style.display = 'block';
+            
+            document.getElementById('noteFinal').innerHTML = '❌ Erreur';
+            document.getElementById('resultDetails').innerHTML = `
+                <div style="color: #e74c3c; margin-top: 15px;">
+                    <strong>Erreur:</strong> ${message}
+                </div>
+                <div style="margin-top: 15px; font-size: 14px;">
+                    <strong>Vérifications:</strong>
+                    <ul>
+                        <li>L'API est-elle démarrée ? <a href="${API_URL}/health" target="_blank">Tester</a></li>
+                        <li>La clé Mistral est-elle configurée ?</li>
+                        <li>Votre texte fait-il au moins 20 caractères ?</li>
+                    </ul>
+                </div>
+            `;
+        }
+
+        // Test de connexion API au chargement
+        window.addEventListener('load', async function() {
+            try {
+                const response = await fetch(`${API_URL}/health`);
+                if (response.ok) {
+                    console.log('✅ API accessible');
+                } else {
+                    console.warn('⚠️ API répond mais avec erreur');
+                }
+            } catch (error) {
+                console.error('❌ API non accessible:', error);
+                alert(`⚠️ API non accessible sur ${API_URL}\nVérifiez que l'API est démarrée.`);
+            }
+        });
+    </script>
+</body>
+</html>

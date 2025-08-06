@@ -1,0 +1,1 @@
+"""Configuration module for Hospitalidée IA API"""

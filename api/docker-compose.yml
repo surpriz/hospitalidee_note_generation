@@ -1,0 +1,90 @@
+# ============================================
+# 🏥 Hospitalidée IA API - Docker Compose
+# ============================================
+# Déploiement ultra-simple avec Docker Compose
+# 
+# USAGE:
+#   1. Copier .env.example vers .env
+#   2. Configurer MISTRAL_API_KEY dans .env
+#   3. docker-compose up -d
+#
+# L'API sera disponible sur http://localhost:8000
+
+version: '3.8'
+
+services:
+  # ===== SERVICE API PRINCIPAL =====
+  hospitalidee-api:
+    build: .
+    container_name: hospitalidee-ia-api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      # Chargement depuis le fichier .env
+      - MISTRAL_API_KEY=${MISTRAL_API_KEY}
+      - MISTRAL_MODEL=${MISTRAL_MODEL:-mistral-small-latest}
+      - MISTRAL_TEMPERATURE=${MISTRAL_TEMPERATURE:-0.3}
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - DEBUG_MODE=${DEBUG_MODE:-false}
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+    volumes:
+      # Logs persistants
+      - ./logs:/app/logs
+    networks:
+      - hospitalidee-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ===== SERVICE REDIS (OPTIONNEL) =====
+  # Décommentez si vous voulez utiliser Redis pour le cache
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: hospitalidee-redis
+  #   restart: unless-stopped
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - redis_data:/data
+  #   networks:
+  #     - hospitalidee-network
+  #   command: redis-server --appendonly yes
+  #   healthcheck:
+  #     test: ["CMD", "redis-cli", "ping"]
+  #     interval: 30s
+  #     timeout: 5s
+  #     retries: 3
+
+  # ===== SERVICE NGINX (OPTIONNEL) =====
+  # Décommentez pour utiliser Nginx comme reverse proxy
+  # nginx:
+  #   image: nginx:alpine
+  #   container_name: hospitalidee-nginx
+  #   restart: unless-stopped
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./nginx.conf:/etc/nginx/nginx.conf:ro
+  #     - ./ssl:/etc/nginx/ssl:ro
+  #   depends_on:
+  #     - hospitalidee-api
+  #   networks:
+  #     - hospitalidee-network
+
+# ===== RÉSEAUX =====
+networks:
+  hospitalidee-network:
+    driver: bridge
+
+# ===== VOLUMES =====
+volumes:
+  # redis_data:  # Décommentez si vous utilisez Redis
+  logs:
+    driver: local
